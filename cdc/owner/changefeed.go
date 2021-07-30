@@ -119,20 +119,29 @@ func (c *changefeed) Tick(ctx cdcContext.Context, state *model.ChangefeedReactor
 	}
 }
 
-func (c *changefeed) tick(ctx cdcContext.Context, state *model.ChangefeedReactorState, captures map[model.CaptureID]*model.CaptureInfo) error {
-	c.state = state
-	c.feedStateManager.Tick(state)
-	checkpointTs := c.state.Info.GetCheckpointTs(c.state.Status)
-	switch c.state.Info.State {
-	case model.StateNormal, model.StateStopped, model.StateError:
+func (c *changefeed) checkStaleCheckpointTs(ctx cdcContext.Context, checkpointTs uint64) error {
+	state := c.state.Info.State
+	if state == model.StateNormal || state == model.StateStopped || state == model.StateError {
 		if err := c.gcManager.CheckStaleCheckpointTs(ctx, checkpointTs); err != nil {
 			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+func (c *changefeed) tick(ctx cdcContext.Context, state *model.ChangefeedReactorState, captures map[model.CaptureID]*model.CaptureInfo) error {
+	c.state = state
+	c.feedStateManager.Tick(state)
 	if !c.feedStateManager.ShouldRunning() {
 		c.releaseResources()
 		return nil
 	}
+
+	checkpointTs := c.state.Info.GetCheckpointTs(c.state.Status)
+	if err := c.checkStaleCheckpointTs(ctx, checkpointTs); err != nil {
+		return err
+	}
+
 	if !c.preflightCheck(captures) {
 		return nil
 	}
