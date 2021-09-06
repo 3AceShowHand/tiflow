@@ -31,7 +31,7 @@ const (
 	// The default max number of TiKV concurrent streams in each connection is 1024
 	grpcConnCapacity = 1000
 
-	// resizeBucket means how many buckets will be extended when resizing an conn array
+	// resizeBucket means how many buckets will be extended when resizing a conn array
 	resizeBucketStep = 2
 
 	updateMetricInterval = 1 * time.Minute
@@ -46,7 +46,7 @@ type connArray struct {
 	mu    sync.Mutex
 	conns []*sharedConn
 
-	// next is used for fetching sharedConn in a round robin way
+	// next is used for fetching sharedConn in a round-robin way
 	next int
 }
 
@@ -184,7 +184,7 @@ func (ca *connArray) close() {
 // GrpcPoolImpl implement GrpcPool interface
 type GrpcPoolImpl struct {
 	poolMu sync.RWMutex
-	// bucketConns maps from TiKV store address to a connArray, which stores a
+	// bucketConns maps from TiKV store address to a connArray, which stores
 	// a slice of gRPC connections.
 	bucketConns map[string]*connArray
 

@@ -345,6 +345,12 @@ func (c *CDCClient) getRegionLimiter(regionID uint64) *rate.Limiter {
 
 func (c *CDCClient) newStream(ctx context.Context, addr string, storeID uint64) (stream *eventFeedStream, newStreamErr error) {
 	newStreamErr = retry.Do(ctx, func() (err error) {
+		err = version.CheckStoreVersion(ctx, c.pd, storeID)
+		if err != nil {
+			log.Error("check tikv version failed", zap.Error(err), zap.Uint64("storeID", storeID))
+			return
+		}
+
 		var conn *sharedConn
 		defer func() {
 			if err != nil && conn != nil {
@@ -356,15 +362,7 @@ func (c *CDCClient) newStream(ctx context.Context, addr string, storeID uint64) 
 			log.Info("get connection to store failed, retry later", zap.String("addr", addr), zap.Error(err))
 			return
 		}
-		err = version.CheckStoreVersion(ctx, c.pd, storeID)
-		if err != nil {
-			// TODO: we don't close gPRC conn here, let it goes into TransientFailure
-			// state. If the store recovers, the gPRC conn can be reused. But if
-			// store goes away forever, the conn will be leaked, we need a better
-			// connection pool.
-			log.Error("check tikv version failed", zap.Error(err), zap.Uint64("storeID", storeID))
-			return
-		}
+
 		client := cdcpb.NewChangeDataClient(conn.ClientConn)
 		var streamClient cdcpb.ChangeData_EventFeedClient
 		streamClient, err = client.EventFeed(ctx)
@@ -762,50 +760,50 @@ func (s *eventFeedSession) requestRegionToStore(
 		logReq("start new request", zap.Reflect("request", req), zap.String("addr", rpcCtx.Addr))
 
 		err = stream.client.Send(req)
+		if err == nil {
+			s.regionRouter.Acquire(rpcCtx.Addr)
+			continue
+		}
 
 		// If Send error, the receiver should have received error too or will receive error soon. So we doesn't need
 		// to do extra work here.
-		if err != nil {
-			log.Warn("send request to stream failed",
-				zap.String("addr", rpcCtx.Addr),
-				zap.Uint64("storeID", getStoreID(rpcCtx)),
-				zap.Uint64("regionID", sri.verID.GetID()),
-				zap.Uint64("requestID", requestID),
-				zap.Error(err))
-			err1 := stream.client.CloseSend()
-			if err1 != nil {
-				log.Warn("failed to close stream", zap.Error(err1))
-			}
-			// Delete the stream from the map so that the next time the store is accessed, the stream will be
-			// re-established.
-			s.deleteStream(rpcCtx.Addr)
-			// Delete `pendingRegions` from `storePendingRegions` so that the next time a region of this store is
-			// requested, it will create a new one. So if the `receiveFromStream` goroutine tries to stop all
-			// pending regions, the new pending regions that are requested after reconnecting won't be stopped
-			// incorrectly.
-			delete(storePendingRegions, rpcCtx.Addr)
+		log.Warn("send request to stream failed",
+			zap.String("addr", rpcCtx.Addr),
+			zap.Uint64("storeID", getStoreID(rpcCtx)),
+			zap.Uint64("regionID", sri.verID.GetID()),
+			zap.Uint64("requestID", requestID),
+			zap.Error(err))
+		err1 := stream.client.CloseSend()
+		if err1 != nil {
+			log.Warn("failed to close stream", zap.Error(err1))
+		}
+		// Delete the stream from the map so that the next time the store is accessed, the stream will be
+		// re-established.
+		s.deleteStream(rpcCtx.Addr)
+		// Delete `pendingRegions` from `storePendingRegions` so that the next time a region of this store is
+		// requested, it will create a new one. So if the `receiveFromStream` goroutine tries to stop all
+		// pending regions, the new pending regions that are requested after reconnecting won't be stopped
+		// incorrectly.
+		delete(storePendingRegions, rpcCtx.Addr)
 
-			// Remove the region from pendingRegions. If it's already removed, it should be already retried by
-			// `receiveFromStream`, so no need to retry here.
-			_, ok := pendingRegions.take(requestID)
-			if !ok {
-				// since this pending region has been removed, the token has been
-				// released in advance, re-add one token here.
-				s.regionRouter.Acquire(rpcCtx.Addr)
-				continue
-			}
-
-			// Wait for a while and retry sending the request
-			time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
-			err = s.onRegionFail(ctx, regionErrorInfo{
-				singleRegionInfo: sri,
-				err:              &sendRequestToStoreErr{},
-			}, false /* revokeToken */)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
+		// Remove the region from pendingRegions. If it's already removed, it should be already retried by
+		// `receiveFromStream`, so no need to retry here.
+		_, ok = pendingRegions.take(requestID)
+		if !ok {
+			// since this pending region has been removed, the token has been
+			// released in advance, re-add one token here.
 			s.regionRouter.Acquire(rpcCtx.Addr)
+			continue
+		}
+
+		// Wait for a while and retry sending the request
+		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+		err = s.onRegionFail(ctx, regionErrorInfo{
+			singleRegionInfo: sri,
+			err:              &sendRequestToStoreErr{},
+		}, false /* revokeToken */)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 }
