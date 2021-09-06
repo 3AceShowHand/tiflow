@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Span represents a arbitrary kv range
+// Span represents an arbitrary kv range
 type Span struct {
 	Start []byte
 	End   []byte

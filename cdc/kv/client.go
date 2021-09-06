@@ -68,7 +68,7 @@ const (
 
 	// TiCDC always interacts with region leader, every time something goes wrong,
 	// failed region will be reloaded via `BatchLoadRegionsWithKeyRange` API. So we
-	// don't need to force reload region any more.
+	// don't need to force reload region anymore.
 	regionScheduleReload = false
 
 	// defaultRegionChanSize is the default channel size for region channel, including
@@ -392,7 +392,7 @@ type PullerInitialization interface {
 	IsInitialized() bool
 }
 
-// EventFeed divides a EventFeed request on range boundaries and establishes
+// EventFeed divides an EventFeed request on range boundaries and establishes
 // a EventFeed to each of the individual region. It streams back result on the
 // provided channel.
 // The `Start` and `End` field in input span must be memcomparable encoded.
@@ -679,28 +679,11 @@ func (s *eventFeedSession) requestRegionToStore(
 			return errors.Trace(ctx.Err())
 		case sri = <-s.regionRouter.Chan():
 		}
-		requestID := allocID()
-
-		extraOp := kvrpcpb.ExtraOp_Noop
-		if s.enableOldValue {
-			extraOp = kvrpcpb.ExtraOp_ReadOldValue
-		}
 
 		rpcCtx := sri.rpcCtx
 		regionID := rpcCtx.Meta.GetId()
-		req := &cdcpb.ChangeDataRequest{
-			Header: &cdcpb.Header{
-				ClusterId:    s.client.clusterID,
-				TicdcVersion: version.ReleaseSemver(),
-			},
-			RegionId:     regionID,
-			RequestId:    requestID,
-			RegionEpoch:  rpcCtx.Meta.RegionEpoch,
-			CheckpointTs: sri.ts,
-			StartKey:     sri.span.Start,
-			EndKey:       sri.span.End,
-			ExtraOp:      extraOp,
-		}
+		requestID := allocID()
+		req := s.newChangeDataRequest(rpcCtx, requestID, regionID, sri)
 
 		failpoint.Inject("kvClientPendingRegionDelay", nil)
 
@@ -827,12 +810,35 @@ func (s *eventFeedSession) requestRegionToStore(
 	}
 }
 
+func (s *eventFeedSession) newChangeDataRequest(rpcCtx *tikv.RPCContext, requestID, regionID uint64, sri singleRegionInfo) *cdcpb.ChangeDataRequest {
+	extraOp := kvrpcpb.ExtraOp_Noop
+	if s.enableOldValue {
+		extraOp = kvrpcpb.ExtraOp_ReadOldValue
+	}
+
+	req := &cdcpb.ChangeDataRequest{
+		Header: &cdcpb.Header{
+			ClusterId:    s.client.clusterID,
+			TicdcVersion: version.ReleaseSemver(),
+		},
+		RegionId:     regionID,
+		RequestId:    requestID,
+		RegionEpoch:  rpcCtx.Meta.RegionEpoch,
+		CheckpointTs: sri.ts,
+		StartKey:     sri.span.Start,
+		EndKey:       sri.span.End,
+		ExtraOp:      extraOp,
+	}
+
+	return req
+}
+
 // dispatchRequest manages a set of streams and dispatch event feed requests
 // to these streams. Streams to each store will be created on need. After
 // establishing new stream, a goroutine will be spawned to handle events from
 // the stream.
 // Regions from `regionCh` will be connected. If any error happens to a
-// region, the error will be send to `errCh` and the receiver of `errCh` is
+// region, the error will be sent to `errCh` and the receiver of `errCh` is
 // responsible for handling the error.
 func (s *eventFeedSession) dispatchRequest(
 	ctx context.Context,
