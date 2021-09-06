@@ -523,13 +523,13 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64) error {
 				return ctx.Err()
 			case task := <-s.requestRangeCh:
 				s.rangeChSizeGauge.Dec()
-				// divideAndSendEventFeedToRegions could be block for some time,
+				// divideAndSendEventFeedToRegions could be blocked for some time,
 				// since it must wait for the region lock available. In order to
 				// consume region range request from `requestRangeCh` as soon as
 				// possible, we create a new goroutine to handle it.
 				// The sequence of region range we process is not matter, the
 				// region lock keeps the region access sequence.
-				// Besides the count or frequency of range request is limited,
+				// Besides, the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
 					return s.divideAndSendEventFeedToRegions(ctx, task.span, task.ts)
@@ -557,6 +557,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64) error {
 		return s.regionRouter.Run(ctx)
 	})
 
+	// send totalSpan, to trigger `divideAndSendEventFeedToRegions`
 	s.requestRangeCh <- rangeRequestTask{span: s.totalSpan, ts: ts}
 	s.rangeChSizeGauge.Inc()
 
@@ -814,7 +815,7 @@ func (s *eventFeedSession) newChangeDataRequest(rpcCtx *tikv.RPCContext, request
 		extraOp = kvrpcpb.ExtraOp_ReadOldValue
 	}
 
-	req := &cdcpb.ChangeDataRequest{
+	return &cdcpb.ChangeDataRequest{
 		Header: &cdcpb.Header{
 			ClusterId:    s.client.clusterID,
 			TicdcVersion: version.ReleaseSemver(),
@@ -827,8 +828,6 @@ func (s *eventFeedSession) newChangeDataRequest(rpcCtx *tikv.RPCContext, request
 		EndKey:       sri.span.End,
 		ExtraOp:      extraOp,
 	}
-
-	return req
 }
 
 // dispatchRequest manages a set of streams and dispatch event feed requests
