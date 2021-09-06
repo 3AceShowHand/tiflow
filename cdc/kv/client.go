@@ -681,7 +681,6 @@ func (s *eventFeedSession) requestRegionToStore(
 		rpcCtx := sri.rpcCtx
 		regionID := rpcCtx.Meta.GetId()
 		requestID := allocID()
-		req := s.newChangeDataRequest(rpcCtx, requestID, regionID, sri)
 
 		failpoint.Inject("kvClientPendingRegionDelay", nil)
 
@@ -752,6 +751,7 @@ func (s *eventFeedSession) requestRegionToStore(
 
 		state := newRegionFeedState(sri, requestID)
 		pendingRegions.insert(requestID, state)
+		req := s.newChangeDataRequest(rpcCtx, requestID, regionID, sri)
 
 		logReq := log.Debug
 		if s.isPullerInit.IsInitialized() {
