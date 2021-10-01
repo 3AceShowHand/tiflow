@@ -15,17 +15,15 @@ package craft
 
 // Utility functions for buffer allocation
 func newBufferSize(oldSize int) int {
-	var newSize int
-	if oldSize > 128 {
-		newSize = oldSize + 128
-	} else {
-		if oldSize > 0 {
-			newSize = oldSize * 2
-		} else {
-			newSize = 8
-		}
+	if oldSize == 0 {
+		return 8
 	}
-	return newSize
+
+	if oldSize > 128 {
+		return oldSize + 128
+	}
+
+	return oldSize * 2
 }
 
 // int slice allocator
