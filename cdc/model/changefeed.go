@@ -48,7 +48,6 @@ const (
 	StateError    FeedState = "error"
 	StateFailed   FeedState = "failed"
 	StateStopped  FeedState = "stopped"
-	StateRemoved  FeedState = "removed" // deprecated, will be removed in the next version
 	StateFinished FeedState = "finished"
 )
 
@@ -65,8 +64,6 @@ func (s FeedState) ToInt() int {
 		return 3
 	case StateFinished:
 		return 4
-	case StateRemoved:
-		return 5
 	}
 	// -1 for unknown feed state
 	return -1

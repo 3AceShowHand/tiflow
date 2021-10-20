@@ -49,7 +49,7 @@ func (m *feedStateManager) Tick(state *orchestrator.ChangefeedReactorState) {
 		return
 	}
 	switch m.state.Info.State {
-	case model.StateStopped, model.StateFailed, model.StateRemoved, model.StateFinished:
+	case model.StateStopped, model.StateFailed, model.StateFinished:
 		m.shouldBeRunning = false
 		return
 	}
@@ -104,7 +104,7 @@ func (m *feedStateManager) handleAdminJob() (jobsPending bool) {
 	case model.AdminRemove:
 		switch m.state.Info.State {
 		case model.StateNormal, model.StateError, model.StateFailed,
-			model.StateStopped, model.StateFinished, model.StateRemoved:
+			model.StateStopped, model.StateFinished:
 		default:
 			log.Warn("can not remove the changefeed in the current state", zap.String("changefeedID", m.state.ID),
 				zap.String("changefeedState", string(m.state.Info.State)), zap.Any("job", job))
@@ -183,8 +183,6 @@ func (m *feedStateManager) patchState(feedState model.FeedState) {
 		adminJobType = model.AdminFinish
 	case model.StateError, model.StateStopped, model.StateFailed:
 		adminJobType = model.AdminStop
-	case model.StateRemoved:
-		adminJobType = model.AdminRemove
 	default:
 		log.Panic("Unreachable")
 	}
