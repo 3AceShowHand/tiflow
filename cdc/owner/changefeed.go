@@ -189,13 +189,15 @@ func (c *changefeed) tick(ctx cdcContext.Context, state *orchestrator.Changefeed
 	default:
 	}
 
-	c.sink.emitCheckpointTs(ctx, checkpointTs)
+	c.sink.emitCheckpointTs(checkpointTs)
 	barrierTs, err := c.handleBarrier(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if barrierTs < checkpointTs {
-		// This condition implies that the DDL resolved-ts has not yet reached checkpointTs,
+
+	lastFlushedCheckpointTs := c.sink.getLastFlushedCheckpointTs()
+	if barrierTs < lastFlushedCheckpointTs {
+		// This condition implies that the DDL resolved-ts has not yet reached the `lastFlushedCheckpointTs`,
 		// which implies that it would be premature to schedule tables or to update status.
 		// So we return here.
 		return nil

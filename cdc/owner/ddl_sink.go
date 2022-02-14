@@ -44,12 +44,15 @@ type DDLSink interface {
 	// emitCheckpointTs emits the checkpoint Ts to downstream data source
 	// this function will return after recording the checkpointTs specified in memory immediately
 	// and the recorded checkpointTs will be sent and updated to downstream data source every second
-	emitCheckpointTs(ctx cdcContext.Context, ts uint64)
+	emitCheckpointTs(ts uint64)
 	// emitDDLEvent emits DDL event and return true if the DDL is executed
 	// the DDL event will be sent to another goroutine and execute to downstream
 	// the caller of this function can call again and again until a true returned
 	emitDDLEvent(ctx cdcContext.Context, ddl *model.DDLEvent) (bool, error)
 	emitSyncPoint(ctx cdcContext.Context, checkpointTs uint64) error
+
+	getLastFlushedCheckpointTs() uint64
+
 	// close the sink, cancel running goroutine.
 	close(ctx context.Context) error
 }
@@ -58,7 +61,9 @@ type ddlSinkImpl struct {
 	lastSyncPoint  model.Ts
 	syncPointStore sink.SyncpointStore
 
-	checkpointTs  model.Ts
+	checkpointTs            model.Ts
+	lastFlushedCheckpointTs model.Ts
+
 	ddlFinishedTs model.Ts
 	ddlSentTs     model.Ts
 
@@ -135,7 +140,6 @@ func (s *ddlSinkImpl) run(ctx cdcContext.Context, id model.ChangeFeedID, info *m
 		// TODO make the tick duration configurable
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
-		var lastCheckpointTs model.Ts
 		for {
 			select {
 			case <-ctx.Done():
@@ -145,10 +149,10 @@ func (s *ddlSinkImpl) run(ctx cdcContext.Context, id model.ChangeFeedID, info *m
 				return
 			case <-ticker.C:
 				checkpointTs := atomic.LoadUint64(&s.checkpointTs)
-				if checkpointTs == 0 || checkpointTs <= lastCheckpointTs {
+				if checkpointTs == 0 || checkpointTs <= s.lastFlushedCheckpointTs {
 					continue
 				}
-				lastCheckpointTs = checkpointTs
+				s.lastFlushedCheckpointTs = checkpointTs
 				if err := s.sink.EmitCheckpointTs(ctx, checkpointTs); err != nil {
 					ctx.Throw(errors.Trace(err))
 					return
@@ -178,7 +182,11 @@ func (s *ddlSinkImpl) run(ctx cdcContext.Context, id model.ChangeFeedID, info *m
 	}()
 }
 
-func (s *ddlSinkImpl) emitCheckpointTs(ctx cdcContext.Context, ts uint64) {
+func (s *ddlSinkImpl) getLastFlushedCheckpointTs() uint64 {
+	return atomic.LoadUint64(&s.lastFlushedCheckpointTs)
+}
+
+func (s *ddlSinkImpl) emitCheckpointTs(ts uint64) {
 	atomic.StoreUint64(&s.checkpointTs, ts)
 }
 
