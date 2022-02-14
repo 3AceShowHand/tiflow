@@ -152,11 +152,11 @@ func (s *ddlSinkImpl) run(ctx cdcContext.Context, id model.ChangeFeedID, info *m
 				if checkpointTs == 0 || checkpointTs <= s.lastFlushedCheckpointTs {
 					continue
 				}
-				s.lastFlushedCheckpointTs = checkpointTs
 				if err := s.sink.EmitCheckpointTs(ctx, checkpointTs); err != nil {
 					ctx.Throw(errors.Trace(err))
 					return
 				}
+				atomic.StoreUint64(&s.lastFlushedCheckpointTs, checkpointTs)
 			case ddl := <-s.ddlCh:
 				err := s.sink.EmitDDLEvent(ctx, ddl)
 				failpoint.Inject("InjectChangefeedDDLError", func() {

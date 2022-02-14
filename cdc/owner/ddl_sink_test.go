@@ -92,9 +92,9 @@ func TestCheckpoint(t *testing.T) {
 			return nil
 		}, retry.WithBackoffBaseDelay(100), retry.WithMaxTries(30))
 	}
-	ddlSink.emitCheckpointTs(ctx, 1)
+	ddlSink.emitCheckpointTs(1)
 	require.Nil(t, waitCheckpointGrowingUp(mSink, 1))
-	ddlSink.emitCheckpointTs(ctx, 10)
+	ddlSink.emitCheckpointTs(10)
 	require.Nil(t, waitCheckpointGrowingUp(mSink, 10))
 }
 

@@ -77,6 +77,11 @@ type mockDDLSink struct {
 	wg sync.WaitGroup
 }
 
+func (m *mockDDLSink) getLastFlushedCheckpointTs() uint64 {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockDDLSink) run(ctx cdcContext.Context, _ model.ChangeFeedID, _ *model.ChangeFeedInfo) {
 	m.wg.Add(1)
 	go func() {
@@ -100,7 +105,7 @@ func (m *mockDDLSink) emitSyncPoint(ctx cdcContext.Context, checkpointTs uint64)
 	return nil
 }
 
-func (m *mockDDLSink) emitCheckpointTs(ctx cdcContext.Context, ts uint64) {
+func (m *mockDDLSink) emitCheckpointTs(ts uint64) {
 	atomic.StoreUint64(&m.checkpointTs, ts)
 }
 
