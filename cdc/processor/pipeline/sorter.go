@@ -70,7 +70,7 @@ type sorterNode struct {
 
 func newSorterNode(
 	tableName string, tableID model.TableID, startTs model.Ts,
-	flowController tableFlowController, mounter entry.Mounter,
+	flowController tableFlowController, mounter entry.Mounter, sorter sorter.EventSorter,
 	replConfig *config.ReplicaConfig,
 ) *sorterNode {
 	return &sorterNode{
@@ -78,6 +78,7 @@ func newSorterNode(
 		tableID:        tableID,
 		flowController: flowController,
 		mounter:        mounter,
+		sorter:         sorter,
 		resolvedTs:     startTs,
 		barrierTs:      startTs,
 		replConfig:     replConfig,
@@ -137,16 +138,11 @@ func (n *sorterNode) start(
 	stdCtx, cancel := context.WithCancel(ctx)
 	n.cancel = cancel
 
-	eventSorter, err := createSorter(ctx, n.tableName, n.tableID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	failpoint.Inject("ProcessorAddTableError", func() {
 		failpoint.Return(errors.New("processor add table injected error"))
 	})
 	n.eg.Go(func() error {
-		ctx.Throw(errors.Trace(eventSorter.Run(stdCtx)))
+		ctx.Throw(errors.Trace(n.sorter.Run(stdCtx)))
 		return nil
 	})
 	n.eg.Go(func() error {
@@ -162,7 +158,7 @@ func (n *sorterNode) start(
 			// We must call `sorter.Output` before receiving resolved events.
 			// Skip calling `sorter.Output` and caching output channel may fail
 			// to receive any events.
-			output := eventSorter.Output()
+			output := n.sorter.Output()
 			select {
 			case <-stdCtx.Done():
 				return nil
@@ -241,7 +237,6 @@ func (n *sorterNode) start(
 			}
 		}
 	})
-	n.sorter = eventSorter
 	return nil
 }
 
