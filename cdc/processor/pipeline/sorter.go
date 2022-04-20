@@ -87,7 +87,7 @@ func newSorterNode(
 
 func (n *sorterNode) Init(ctx pipeline.NodeContext) error {
 	wg := errgroup.Group{}
-	return n.start(ctx, false, &wg, 0, nil)
+	return n.start(ctx, false, &wg)
 }
 
 func createSorter(ctx pipeline.NodeContext, tableName string, tableID model.TableID) (sorter.EventSorter, error) {
@@ -129,10 +129,49 @@ func createSorter(ctx pipeline.NodeContext, tableName string, tableID model.Tabl
 	}
 }
 
+func (n *sorterNode) output(ctx context.Context, tableActorID actor.ID, tableActorRouter *actor.Router[pmessage.Message]) (result pmessage.Message, ok bool, err error) {
+	var msg *model.PolymorphicEvent
+	// We must call `sorter.Output` before receiving resolved events.
+	// Skip calling `sorter.Output` and caching output channel may fail
+	// to receive any events.
+	output := n.sorter.Output()
+	select {
+	case <-ctx.Done():
+		return pmessage.Message{}, false, nil
+	case msg, ok = <-output:
+		if !ok {
+			// sorter output channel closed.
+			return pmessage.Message{}, false, nil
+		}
+	default:
+		return pmessage.Message{}, false, nil
+	}
+
+	if msg == nil || msg.RawKV == nil {
+		log.Panic("unexpected empty msg", zap.Any("msg", msg))
+	}
+
+	if msg.RawKV.OpType == model.OpTypeResolved {
+		// handle OpTypeResolved
+		//if msg.CRTs < lastSentResolvedTs {
+		//	continue
+		//}
+		if n.isTableActorMode {
+			msg := message.ValueMessage(pmessage.TickMessage())
+			_ = tableActorRouter.Send(tableActorID, msg)
+		}
+		return pmessage.PolymorphicEventMessage(msg), true, nil
+	}
+
+	if err := n.mounter.DecodeEvent(ctx, msg); err != nil {
+		return pmessage.Message{}, false, errors.Trace(err)
+	}
+
+	return pmessage.PolymorphicEventMessage(msg), true, nil
+}
+
 func (n *sorterNode) start(
-	ctx pipeline.NodeContext, isTableActorMode bool, eg *errgroup.Group,
-	tableActorID actor.ID, tableActorRouter *actor.Router[pmessage.Message],
-) error {
+	ctx pipeline.NodeContext, isTableActorMode bool, eg *errgroup.Group) error {
 	n.isTableActorMode = isTableActorMode
 	n.eg = eg
 	stdCtx, cancel := context.WithCancel(ctx)
@@ -144,98 +183,6 @@ func (n *sorterNode) start(
 	n.eg.Go(func() error {
 		ctx.Throw(errors.Trace(n.sorter.Run(stdCtx)))
 		return nil
-	})
-	n.eg.Go(func() error {
-		lastSentResolvedTs := uint64(0)
-		lastSendResolvedTsTime := time.Now() // the time at which we last sent a resolved-ts.
-		lastCRTs := uint64(0)                // the commit-ts of the last row changed we sent.
-
-		metricsTableMemoryHistogram := tableMemoryHistogram.WithLabelValues(ctx.ChangefeedVars().ID)
-		metricsTicker := time.NewTicker(flushMemoryMetricsDuration)
-		defer metricsTicker.Stop()
-
-		for {
-			// We must call `sorter.Output` before receiving resolved events.
-			// Skip calling `sorter.Output` and caching output channel may fail
-			// to receive any events.
-			output := n.sorter.Output()
-			select {
-			case <-stdCtx.Done():
-				return nil
-			case <-metricsTicker.C:
-				metricsTableMemoryHistogram.Observe(float64(n.flowController.GetConsumption()))
-			case msg, ok := <-output:
-				if !ok {
-					// sorter output channel closed
-					return nil
-				}
-				if msg == nil || msg.RawKV == nil {
-					log.Panic("unexpected empty msg", zap.Reflect("msg", msg))
-				}
-				if msg.RawKV.OpType != model.OpTypeResolved {
-					err := n.mounter.DecodeEvent(ctx, msg)
-					if err != nil {
-						return errors.Trace(err)
-					}
-
-					commitTs := msg.CRTs
-					// We interpolate a resolved-ts if none has been sent for some time.
-					if time.Since(lastSendResolvedTsTime) > resolvedTsInterpolateInterval {
-						// checks the condition: cur_event_commit_ts > prev_event_commit_ts > last_resolved_ts
-						// If this is true, it implies that (1) the last transaction has finished, and we are processing
-						// the first event in a new transaction, (2) a resolved-ts is safe to be sent, but it has not yet.
-						// This means that we can interpolate prev_event_commit_ts as a resolved-ts, improving the frequency
-						// at which the sink flushes.
-						if lastCRTs > lastSentResolvedTs && commitTs > lastCRTs {
-							lastSentResolvedTs = lastCRTs
-							lastSendResolvedTsTime = time.Now()
-							msg := model.NewResolvedPolymorphicEvent(0, lastCRTs)
-							ctx.SendToNextNode(pmessage.PolymorphicEventMessage(msg))
-						}
-					}
-
-					// We calculate memory consumption by RowChangedEvent size.
-					// It's much larger than RawKVEntry.
-					size := uint64(msg.Row.ApproximateBytes())
-					// NOTE we allow the quota to be exceeded if blocking means interrupting a transaction.
-					// Otherwise the pipeline would deadlock.
-					err = n.flowController.Consume(commitTs, size, func() error {
-						if lastCRTs > lastSentResolvedTs {
-							// If we are blocking, we send a Resolved Event here to elicit a sink-flush.
-							// Not sending a Resolved Event here will very likely deadlock the pipeline.
-							lastSentResolvedTs = lastCRTs
-							lastSendResolvedTsTime = time.Now()
-							msg := model.NewResolvedPolymorphicEvent(0, lastCRTs)
-							ctx.SendToNextNode(pmessage.PolymorphicEventMessage(msg))
-						}
-						return nil
-					})
-					if err != nil {
-						if cerror.ErrFlowControllerAborted.Equal(err) {
-							log.Info("flow control cancelled for table",
-								zap.Int64("tableID", n.tableID),
-								zap.String("tableName", n.tableName))
-						} else {
-							ctx.Throw(err)
-						}
-						return nil
-					}
-					lastCRTs = commitTs
-				} else {
-					// handle OpTypeResolved
-					if msg.CRTs < lastSentResolvedTs {
-						continue
-					}
-					if isTableActorMode {
-						msg := message.ValueMessage(pmessage.TickMessage())
-						_ = tableActorRouter.Send(tableActorID, msg)
-					}
-					lastSentResolvedTs = msg.CRTs
-					lastSendResolvedTsTime = time.Now()
-				}
-				ctx.SendToNextNode(pmessage.PolymorphicEventMessage(msg))
-			}
-		}
 	})
 	return nil
 }
