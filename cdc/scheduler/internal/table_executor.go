@@ -26,13 +26,12 @@ import (
 // TODO find a way to make the semantics easier to understand.
 type TableExecutor interface {
 	AddTable(
-		ctx context.Context, tableID model.TableID, checkpointTs model.Ts, isPrepare bool,
+		ctx context.Context, tableID model.TableID, startTs model.Ts, isPrepare bool,
 	) (done bool, err error)
 	IsAddTableFinished(ctx context.Context, tableID model.TableID) (done bool)
 
 	RemoveTable(ctx context.Context, tableID model.TableID) (done bool, err error)
-	// IsRemoveTableFinished(ctx context.Context, tableID model.TableID) (model.Ts, bool)
-	IsRemoveTableFinished(ctx context.Context, tableID model.TableID) (done bool)
+	IsRemoveTableFinished(ctx context.Context, tableID model.TableID) (model.Ts, bool)
 
 	// GetAllCurrentTables should return all tables that are being run,
 	// being added and being removed.

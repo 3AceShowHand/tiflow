@@ -142,10 +142,11 @@ const (
 )
 
 type agentOperation struct {
-	TableID  model.TableID
-	StartTs  model.Ts
-	IsDelete bool
-	Epoch    protocol.ProcessorEpoch
+	TableID   model.TableID
+	StartTs   model.Ts
+	IsPrimary bool
+	IsDelete  bool
+	Epoch     protocol.ProcessorEpoch
 
 	// FromOwnerID is for debugging purposesFromOwnerID
 	FromOwnerID model.CaptureID
@@ -295,7 +296,7 @@ func (a *Agent) processOperations(ctx context.Context) error {
 			if !op.IsDelete {
 				done = a.executor.IsAddTableFinished(ctx, op.TableID)
 			} else {
-				done = a.executor.IsRemoveTableFinished(ctx, op.TableID)
+				checkpoint, done := a.executor.IsRemoveTableFinished(ctx, op.TableID)
 			}
 			if !done {
 				break

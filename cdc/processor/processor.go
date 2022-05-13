@@ -105,11 +105,8 @@ func (p *processor) checkReadyForMessages() bool {
 }
 
 // AddTable implements TableExecutor interface.
-// func (p *processor) AddTable(
-// 	ctx context.Context, tableID model.TableID, checkpointTs model.Ts, isPrepare bool,
-// ) (bool, error) {
 func (p *processor) AddTable(
-	ctx context.Context, tableID model.TableID, checkpointTs model.Ts, isPrepare bool,
+	ctx context.Context, tableID model.TableID, startTs model.Ts, isPrepare bool,
 ) (done bool, err error) {
 	if !p.checkReadyForMessages() {
 		return false, nil
@@ -120,7 +117,7 @@ func (p *processor) AddTable(
 		zap.Uint64("checkpointTs", startTs),
 		zap.String("namespace", p.changefeedID.Namespace),
 		zap.String("changefeed", p.changefeedID.ID))
-	err := p.addTable(ctx.(cdcContext.Context), tableID, &model.TableReplicaInfo{StartTs: startTs})
+	err = p.addTable(ctx.(cdcContext.Context), tableID, &model.TableReplicaInfo{StartTs: startTs}, isPrepare)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -195,12 +192,11 @@ func (p *processor) IsAddTableFinished(ctx context.Context, tableID model.TableI
 }
 
 // IsRemoveTableFinished implements TableExecutor interface.
-// func (p *processor) IsRemoveTableFinished(
-// 	ctx context.Context, tableID model.TableID,
-// ) (model.Ts, bool) {
-func (p *processor) IsRemoveTableFinished(ctx context.Context, tableID model.TableID) bool {
+func (p *processor) IsRemoveTableFinished(
+	ctx context.Context, tableID model.TableID,
+) (model.Ts, bool) {
 	if !p.checkReadyForMessages() {
-		return false
+		return 0, false
 	}
 
 	table, exist := p.tables[tableID]
@@ -209,7 +205,7 @@ func (p *processor) IsRemoveTableFinished(ctx context.Context, tableID model.Tab
 			zap.String("namespace", p.changefeedID.Namespace),
 			zap.String("changefeed", p.changefeedID.ID),
 			zap.Int64("tableID", tableID))
-		return true
+		return 0, true
 	}
 	if table.Status() != tablepipeline.TableStatusStopped {
 		log.Debug("the table is still not stopped",
@@ -217,7 +213,7 @@ func (p *processor) IsRemoveTableFinished(ctx context.Context, tableID model.Tab
 			zap.String("changefeed", p.changefeedID.ID),
 			zap.Uint64("checkpointTs", table.CheckpointTs()),
 			zap.Int64("tableID", tableID))
-		return false
+		return 0, false
 	}
 
 	table.Cancel()
@@ -228,7 +224,7 @@ func (p *processor) IsRemoveTableFinished(ctx context.Context, tableID model.Tab
 		zap.String("changefeed", p.changefeedID.ID),
 		zap.Int64("tableID", tableID))
 
-	return true
+	return table.CheckpointTs(), true
 }
 
 // GetAllCurrentTables implements TableExecutor interface.
@@ -696,7 +692,7 @@ func (p *processor) pushResolvedTs2Table() {
 }
 
 // addTable creates a new table pipeline and adds it to the `p.tables`
-func (p *processor) addTable(ctx cdcContext.Context, tableID model.TableID, replicaInfo *model.TableReplicaInfo) error {
+func (p *processor) addTable(ctx cdcContext.Context, tableID model.TableID, replicaInfo *model.TableReplicaInfo, isPrepare bool) error {
 	if replicaInfo.StartTs == 0 {
 		log.Panic("table start ts must not be 0",
 			zap.String("namespace", p.changefeedID.Namespace),
