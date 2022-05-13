@@ -109,8 +109,8 @@ func (p *processor) checkReadyForMessages() bool {
 // 	ctx context.Context, tableID model.TableID, checkpointTs model.Ts, isPrepare bool,
 // ) (bool, error) {
 func (p *processor) AddTable(
-	ctx context.Context, tableID model.TableID, startTs model.Ts,
-) (bool, error) {
+	ctx context.Context, tableID model.TableID, checkpointTs model.Ts, isPrepare bool,
+) (done bool, err error) {
 	if !p.checkReadyForMessages() {
 		return false, nil
 	}
