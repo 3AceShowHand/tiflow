@@ -114,6 +114,7 @@ func (p *processor) AddTable(
 
 	log.Info("adding table",
 		zap.Int64("tableID", tableID),
+		zap.Bool("isPrepare", isPrepare),
 		zap.Uint64("checkpointTs", startTs),
 		zap.String("namespace", p.changefeedID.Namespace),
 		zap.String("changefeed", p.changefeedID.ID))

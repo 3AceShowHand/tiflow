@@ -41,7 +41,8 @@ type TableStatus int32
 const (
 	TableStatusPreparing TableStatus = iota
 	TableStatusPrepared
-	TableStatusRunning
+	TableStatusReplicating
+	TableStatusStopping
 	TableStatusStopped
 )
 
@@ -51,8 +52,10 @@ func (s TableStatus) String() string {
 		return "Preparing"
 	case TableStatusPrepared:
 		return "Prepared"
-	case TableStatusRunning:
-		return "Running"
+	case TableStatusReplicating:
+		return "replicating"
+	case TableStatusStopping:
+		return "stopping"
 	case TableStatusStopped:
 		return "Stopped"
 	}
@@ -296,7 +299,7 @@ func (n *sinkNode) HandleMessage(ctx context.Context, msg pmessage.Message) (boo
 		event := msg.PolymorphicEvent
 		if event.RawKV.OpType == model.OpTypeResolved {
 			if n.status.Load() == TableStatusPreparing {
-				n.status.Store(TableStatusRunning)
+				n.status.Store(TableStatusReplicating)
 			}
 			failpoint.Inject("ProcessorSyncResolvedError", func() {
 				failpoint.Return(false, errors.New("processor sync resolved injected error"))
