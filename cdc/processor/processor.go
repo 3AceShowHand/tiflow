@@ -80,7 +80,7 @@ type processor struct {
 	wg          sync.WaitGroup
 
 	lazyInit            func(ctx cdcContext.Context) error
-	createTablePipeline func(ctx cdcContext.Context, tableID model.TableID, replicaInfo *model.TableReplicaInfo) (tablepipeline.TablePipeline, error)
+	createTablePipeline func(ctx cdcContext.Context, tableID model.TableID, replicaInfo *model.TableReplicaInfo, isPrepare bool) (tablepipeline.TablePipeline, error)
 	newAgent            func(ctx cdcContext.Context) (scheduler.Agent, error)
 
 	agent        scheduler.Agent
@@ -112,16 +112,33 @@ func (p *processor) AddTable(
 		return false, nil
 	}
 
+	if startTs == 0 {
+		log.Panic("table start ts must not be 0",
+			zap.String("namespace", p.changefeedID.Namespace),
+			zap.String("changefeed", p.changefeedID.ID),
+			zap.Int64("tableID", tableID))
+	}
+
 	log.Info("adding table",
 		zap.Int64("tableID", tableID),
 		zap.Bool("isPrepare", isPrepare),
 		zap.Uint64("checkpointTs", startTs),
 		zap.String("namespace", p.changefeedID.Namespace),
 		zap.String("changefeed", p.changefeedID.ID))
-	err = p.addTable(ctx.(cdcContext.Context), tableID, &model.TableReplicaInfo{StartTs: startTs}, isPrepare)
-	if err != nil {
-		return false, errors.Trace(err)
+
+	if isPrepare {
+		err := p.addTable(ctx.(cdcContext.Context), tableID, &model.TableReplicaInfo{}, isPrepare)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+	} else {
+		t, ok := p.tables[tableID]
+		if !ok {
+			return false, cerror.ErrTableIneligible.GenWithStackByArgs(tableID)
+		}
+		t.Run(startTs)
 	}
+
 	return true, nil
 }
 
@@ -169,8 +186,8 @@ func (p *processor) IsAddTableFinished(ctx context.Context, tableID model.TableI
 	}
 	localResolvedTs := p.resolvedTs
 	globalResolvedTs := p.changefeed.Status.ResolvedTs
-	localCheckpointTs := p.agent.GetLastSentCheckpointTs()
-	globalCheckpointTs := p.changefeed.Status.CheckpointTs
+	//localCheckpointTs := p.agent.GetLastSentCheckpointTs()
+	//globalCheckpointTs := p.changefeed.Status.CheckpointTs
 
 	// These two conditions are used to determine if the table's pipeline has finished
 	// initializing and all invariants have been preserved.
@@ -179,12 +196,27 @@ func (p *processor) IsAddTableFinished(ctx context.Context, tableID model.TableI
 	// the resolved-ts are preserved before communicating with the Owner.
 	//
 	// These conditions are similar to those in the legacy implementation of the Owner/Processor.
-	if table.CheckpointTs() < localCheckpointTs || localCheckpointTs < globalCheckpointTs {
+	//if table.CheckpointTs() < localCheckpointTs || localCheckpointTs < globalCheckpointTs {
+	//	return false
+	//}
+	//if table.ResolvedTs() < localResolvedTs || localResolvedTs < globalResolvedTs {
+	//	return false
+	//}
+
+	if table.ResolvedTs() < localResolvedTs ||
+		localResolvedTs < globalResolvedTs ||
+		table.Status() != tablepipeline.TableStatusPrepared {
+		log.Info("Add Table not finished",
+			cdcContext.ZapFieldChangefeed(ctx),
+			zap.Int64("tableID", tableID),
+			zap.Uint64("tableResolvedTs", table.ResolvedTs()),
+			zap.Uint64("localResolvedTs", localResolvedTs),
+			zap.Uint64("globalResolvedTs", globalResolvedTs),
+			zap.Stringer("status", table.Status()),
+		)
 		return false
 	}
-	if table.ResolvedTs() < localResolvedTs || localResolvedTs < globalResolvedTs {
-		return false
-	}
+
 	log.Info("Add Table finished",
 		zap.String("namespace", p.changefeedID.Namespace),
 		zap.String("changefeed", p.changefeedID.ID),
@@ -645,6 +677,10 @@ func (p *processor) handlePosition(currentTs int64) {
 		minResolvedTs = p.schemaStorage.ResolvedTs()
 	}
 	for _, table := range p.tables {
+		status := table.Status()
+		if status == tablepipeline.TableStatusPreparing || status == tablepipeline.TableStatusPrepared {
+			continue
+		}
 		ts := table.ResolvedTs()
 		if ts < minResolvedTs {
 			minResolvedTs = ts
@@ -655,7 +691,11 @@ func (p *processor) handlePosition(currentTs int64) {
 	minCheckpointTs := minResolvedTs
 	minCheckpointTableID := int64(0)
 	for _, table := range p.tables {
+		status := table.Status()
 		ts := table.CheckpointTs()
+		if status == tablepipeline.TableStatusPreparing || status == tablepipeline.TableStatusPrepared {
+			continue
+		}
 		if ts < minCheckpointTs {
 			minCheckpointTs = ts
 			minCheckpointTableID, _ = table.ID()
@@ -693,14 +733,9 @@ func (p *processor) pushResolvedTs2Table() {
 }
 
 // addTable creates a new table pipeline and adds it to the `p.tables`
+// if `isPrepare` is true, indicate that the created table only generate data to the sorter.
+// if `isPrepare` is false, which means the `sink` should work.
 func (p *processor) addTable(ctx cdcContext.Context, tableID model.TableID, replicaInfo *model.TableReplicaInfo, isPrepare bool) error {
-	if replicaInfo.StartTs == 0 {
-		log.Panic("table start ts must not be 0",
-			zap.String("namespace", p.changefeedID.Namespace),
-			zap.String("changefeed", p.changefeedID.ID),
-			zap.Int64("tableID", tableID))
-	}
-
 	if table, ok := p.tables[tableID]; ok {
 		if table.Status() == tablepipeline.TableStatusStopped {
 			log.Warn("The same table exists but is stopped. Cancel it and continue.", cdcContext.ZapFieldChangefeed(ctx), zap.Int64("ID", tableID))
@@ -720,7 +755,7 @@ func (p *processor) addTable(ctx cdcContext.Context, tableID model.TableID, repl
 			zap.Uint64("checkpoint", globalCheckpointTs),
 			zap.Uint64("startTs", replicaInfo.StartTs))
 	}
-	table, err := p.createTablePipeline(ctx, tableID, replicaInfo)
+	table, err := p.createTablePipeline(ctx, tableID, replicaInfo, isPrepare)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -788,6 +823,7 @@ func (p *processor) createTablePipelineImpl(
 	ctx cdcContext.Context,
 	tableID model.TableID,
 	replicaInfo *model.TableReplicaInfo,
+	isPrepare bool,
 ) (tablepipeline.TablePipeline, error) {
 	ctx = cdcContext.WithErrorHandler(ctx, func(err error) error {
 		if cerror.ErrTableProcessorStoppedSafely.Equal(err) ||

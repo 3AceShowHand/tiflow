@@ -279,10 +279,11 @@ func (t *tableActor) start(sdtTableContext context.Context) error {
 		zap.String("tableName", t.tableName),
 		zap.Uint64("quota", t.memoryQuota))
 
+	status := TableStatusPreparing
 	flowController := flowcontrol.NewTableFlowController(t.memoryQuota)
 	sorterNode := newSorterNode(t.tableName, t.tableID,
 		t.replicaInfo.StartTs, flowController,
-		t.mounter, t.replicaConfig,
+		t.mounter, t.replicaConfig, &status,
 	)
 	t.sortNode = sorterNode
 	sortActorNodeContext := newContext(sdtTableContext, t.tableName,
@@ -317,7 +318,7 @@ func (t *tableActor) start(sdtTableContext context.Context) error {
 
 	actorSinkNode := newSinkNode(t.tableID, t.tableSink,
 		t.replicaInfo.StartTs,
-		t.targetTs, flowController)
+		t.targetTs, flowController, &status)
 	actorSinkNode.initWithReplicaConfig(true, t.replicaConfig)
 	t.sinkNode = actorSinkNode
 
@@ -334,6 +335,13 @@ func (t *tableActor) start(sdtTableContext context.Context) error {
 		zap.String("tableName", t.tableName),
 		zap.Int64("tableID", t.tableID))
 	return nil
+}
+
+func (t *tableActor) Run(checkpointTs model.Ts) {
+	if atomic.CompareAndSwapInt32(&t.sortNode.isRunning, 0, 1) {
+		t.sortNode.startRun <- checkpointTs
+		close(t.sortNode.startRun)
+	}
 }
 
 func (t *tableActor) getSinkAsyncMessageHolder(

@@ -74,7 +74,7 @@ func (s *TableStatus) Store(new TableStatus) {
 
 type sinkNode struct {
 	sink    sink.Sink
-	status  TableStatus
+	status  *TableStatus
 	tableID model.TableID
 
 	resolvedTs   model.Ts
@@ -88,11 +88,11 @@ type sinkNode struct {
 	isTableActorMode bool
 }
 
-func newSinkNode(tableID model.TableID, sink sink.Sink, startTs model.Ts, targetTs model.Ts, flowController tableFlowController) *sinkNode {
+func newSinkNode(tableID model.TableID, sink sink.Sink, startTs model.Ts, targetTs model.Ts, flowController tableFlowController, status *TableStatus) *sinkNode {
 	return &sinkNode{
 		tableID:      tableID,
 		sink:         sink,
-		status:       TableStatusPreparing,
+		status:       status,
 		targetTs:     targetTs,
 		resolvedTs:   startTs,
 		checkpointTs: startTs,

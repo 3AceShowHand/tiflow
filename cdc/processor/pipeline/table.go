@@ -52,7 +52,7 @@ type TablePipeline interface {
 	// AsyncStop tells the pipeline to stop, and returns true is the pipeline is already stopped.
 	AsyncStop(targetTs model.Ts) bool
 	// Run transit table state from ready to run.
-	// Run(checkpointTs model.Ts)
+	Run(checkpointTs model.Ts)
 	// Workload returns the workload of this table
 	Workload() model.WorkloadInfo
 	// Status returns the status of this table pipeline
@@ -163,6 +163,11 @@ func (t *tablePipelineImpl) Wait() {
 	t.p.Wait()
 }
 
+// Run start the sink
+func (t *tablePipelineImpl) Run(checkpointTs model.Ts) {
+	close(t.sorterNode.startRun)
+}
+
 // Assume 1KB per row in upstream TiDB, it takes about 250 MB (1024*4*64) for
 // replicating 1024 tables in the worst case.
 const defaultOutputChannelSize = 64
@@ -207,10 +212,11 @@ func NewTablePipeline(ctx cdcContext.Context,
 		runnerSize++
 	}
 
+	status := TableStatusPreparing
 	p := pipeline.NewPipeline(ctx, 500*time.Millisecond, runnerSize, defaultOutputChannelSize)
 	sorterNode := newSorterNode(tableName, tableID, replicaInfo.StartTs,
-		flowController, mounter, replConfig)
-	sinkNode := newSinkNode(tableID, sink, replicaInfo.StartTs, targetTs, flowController)
+		flowController, mounter, replConfig, &status)
+	sinkNode := newSinkNode(tableID, sink, replicaInfo.StartTs, targetTs, flowController, &status)
 
 	p.AppendNode(ctx, "puller", newPullerNode(tableID, replicaInfo, tableName, changefeed))
 	p.AppendNode(ctx, "sorter", sorterNode)
