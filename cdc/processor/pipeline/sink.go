@@ -34,47 +34,9 @@ const (
 	defaultSyncResolvedBatch = 64
 )
 
-// TableStatus is status of the table pipeline
-type TableStatus int32
-
-// TableStatus for table pipeline
-const (
-	TableStatusPreparing TableStatus = iota
-	TableStatusPrepared
-	TableStatusReplicating
-	TableStatusStopping
-	TableStatusStopped
-)
-
-func (s TableStatus) String() string {
-	switch s {
-	case TableStatusPreparing:
-		return "Preparing"
-	case TableStatusPrepared:
-		return "Prepared"
-	case TableStatusReplicating:
-		return "replicating"
-	case TableStatusStopping:
-		return "stopping"
-	case TableStatusStopped:
-		return "Stopped"
-	}
-	return "Unknown"
-}
-
-// Load TableStatus with THREAD-SAFE
-func (s *TableStatus) Load() TableStatus {
-	return TableStatus(atomic.LoadInt32((*int32)(s)))
-}
-
-// Store TableStatus with THREAD-SAFE
-func (s *TableStatus) Store(new TableStatus) {
-	atomic.StoreInt32((*int32)(s), int32(new))
-}
-
 type sinkNode struct {
 	sink    sink.Sink
-	status  *TableStatus
+	status  TableStatus
 	tableID model.TableID
 
 	resolvedTs   model.Ts
@@ -88,11 +50,11 @@ type sinkNode struct {
 	isTableActorMode bool
 }
 
-func newSinkNode(tableID model.TableID, sink sink.Sink, startTs model.Ts, targetTs model.Ts, flowController tableFlowController, status *TableStatus) *sinkNode {
+func newSinkNode(tableID model.TableID, sink sink.Sink, startTs model.Ts, targetTs model.Ts, flowController tableFlowController) *sinkNode {
 	return &sinkNode{
 		tableID:      tableID,
 		sink:         sink,
-		status:       status,
+		status:       TableStatusPrepared,
 		targetTs:     targetTs,
 		resolvedTs:   startTs,
 		checkpointTs: startTs,

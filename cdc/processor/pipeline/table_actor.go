@@ -145,28 +145,90 @@ func NewTableActor(cdcCtx cdcContext.Context,
 
 		stopCtx: cctx,
 	}
+	if err := table.startSorter(ctx); err != nil {
+		return table, errors.Trace(err)
+	}
 
-	startTime := time.Now()
-	log.Info("table actor starting",
-		zap.String("namespace", table.changefeedID.Namespace),
-		zap.String("changefeed", table.changefeedID.ID),
-		zap.String("tableName", tableName),
-		zap.Int64("tableID", tableID))
-	if err := table.start(cctx); err != nil {
-		table.stop(err)
-		return nil, errors.Trace(err)
-	}
-	err := globalVars.TableActorSystem.System().Spawn(mb, table)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	log.Info("table actor started",
-		zap.String("namespace", table.changefeedID.Namespace),
-		zap.String("changefeed", table.changefeedID.ID),
-		zap.String("tableName", tableName),
-		zap.Int64("tableID", tableID),
-		zap.Duration("duration", time.Since(startTime)))
 	return table, nil
+}
+
+func (t *tableActor) startSorter(sdtTableContext context.Context) error {
+	flowController := flowcontrol.NewTableFlowController(t.memoryQuota)
+	sorterNode := newSorterNode(t.tableName, t.tableID, t.replicaInfo.StartTs, flowController, t.mounter, t.replicaConfig)
+	t.sortNode = sorterNode
+
+	sortActorNodeContext := newContext(sdtTableContext, t.tableName,
+		t.globalVars.TableActorSystem.Router(),
+		t.actorID, t.changefeedVars, t.globalVars, t.reportErr)
+
+	if err := startSorter(t, sortActorNodeContext); err != nil {
+		log.Error("sorter fails to start",
+			zap.String("tableName", t.tableName),
+			zap.Int64("tableID", t.tableID),
+			zap.Error(err))
+		return err
+	}
+
+	pullerNode := newPullerNode(t.tableID, t.replicaInfo, t.tableName, t.changefeedVars.ID)
+	pullerActorNodeContext := newContext(sdtTableContext,
+		t.tableName,
+		t.globalVars.TableActorSystem.Router(),
+		t.actorID, t.changefeedVars, t.globalVars, t.reportErr)
+	t.pullerNode = pullerNode
+	if err := startPuller(t, pullerActorNodeContext); err != nil {
+		log.Error("puller fails to start",
+			zap.String("tableName", t.tableName),
+			zap.Int64("tableID", t.tableID),
+			zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// Start the table actor, both sorter and sink at the moment.
+// todo: sorter / sink start separately.
+func (t *tableActor) Start() error {
+	if t.Status() == TableStatusReplicating {
+		log.Panic("start an already started table",
+			zap.String("namespace", t.changefeedID.Namespace),
+			zap.String("changefeed", t.changefeedID.ID),
+			zap.Int64("tableID", t.tableID),
+			zap.String("tableName", t.tableName))
+	}
+
+	log.Debug("creating table flow controller",
+		zap.String("namespace", t.changefeedID.Namespace),
+		zap.String("changefeed", t.changefeedID.ID),
+		zap.Int64("tableID", t.tableID),
+		zap.String("tableName", t.tableName),
+		zap.Uint64("quota", t.memoryQuota))
+
+	flowController := flowcontrol.NewTableFlowController(t.memoryQuota)
+
+	messageFetchFunc, err := t.getSinkAsyncMessageHolder(sdtTableContext, sortActorNodeContext)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	actorSinkNode := newSinkNode(t.tableID, t.tableSink,
+		t.replicaInfo.StartTs,
+		t.targetTs, flowController)
+	actorSinkNode.initWithReplicaConfig(true, t.replicaConfig)
+	t.sinkNode = actorSinkNode
+
+	// construct sink actor node, it gets message from sortNode or cyclicNode
+	var messageProcessFunc asyncMessageProcessorFunc = func(
+		ctx context.Context, msg pmessage.Message,
+	) (bool, error) {
+		return actorSinkNode.HandleMessage(sdtTableContext, msg)
+	}
+	t.nodes = append(t.nodes, NewActorNode(messageFetchFunc, messageProcessFunc))
+
+	t.started = true
+	log.Info("table actor is started",
+		zap.String("tableName", t.tableName),
+		zap.Int64("tableID", t.tableID))
+	return nil
 }
 
 // OnClose implements Actor interface.
@@ -262,79 +324,6 @@ func (t *tableActor) handleStopMsg(ctx context.Context) {
 			t.handleError(err)
 		}
 	}()
-}
-
-func (t *tableActor) start(sdtTableContext context.Context) error {
-	if t.started {
-		log.Panic("start an already started table",
-			zap.String("namespace", t.changefeedID.Namespace),
-			zap.String("changefeed", t.changefeedID.ID),
-			zap.Int64("tableID", t.tableID),
-			zap.String("tableName", t.tableName))
-	}
-	log.Debug("creating table flow controller",
-		zap.String("namespace", t.changefeedID.Namespace),
-		zap.String("changefeed", t.changefeedID.ID),
-		zap.Int64("tableID", t.tableID),
-		zap.String("tableName", t.tableName),
-		zap.Uint64("quota", t.memoryQuota))
-
-	status := TableStatusPreparing
-	flowController := flowcontrol.NewTableFlowController(t.memoryQuota)
-	sorterNode := newSorterNode(t.tableName, t.tableID,
-		t.replicaInfo.StartTs, flowController,
-		t.mounter, t.replicaConfig, &status,
-	)
-	t.sortNode = sorterNode
-	sortActorNodeContext := newContext(sdtTableContext, t.tableName,
-		t.globalVars.TableActorSystem.Router(),
-		t.actorID, t.changefeedVars, t.globalVars, t.reportErr)
-	if err := startSorter(t, sortActorNodeContext); err != nil {
-		log.Error("sorter fails to start",
-			zap.String("tableName", t.tableName),
-			zap.Int64("tableID", t.tableID),
-			zap.Error(err))
-		return err
-	}
-
-	pullerNode := newPullerNode(t.tableID, t.replicaInfo, t.tableName, t.changefeedVars.ID)
-	pullerActorNodeContext := newContext(sdtTableContext,
-		t.tableName,
-		t.globalVars.TableActorSystem.Router(),
-		t.actorID, t.changefeedVars, t.globalVars, t.reportErr)
-	t.pullerNode = pullerNode
-	if err := startPuller(t, pullerActorNodeContext); err != nil {
-		log.Error("puller fails to start",
-			zap.String("tableName", t.tableName),
-			zap.Int64("tableID", t.tableID),
-			zap.Error(err))
-		return err
-	}
-
-	messageFetchFunc, err := t.getSinkAsyncMessageHolder(sdtTableContext, sortActorNodeContext)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	actorSinkNode := newSinkNode(t.tableID, t.tableSink,
-		t.replicaInfo.StartTs,
-		t.targetTs, flowController, &status)
-	actorSinkNode.initWithReplicaConfig(true, t.replicaConfig)
-	t.sinkNode = actorSinkNode
-
-	// construct sink actor node, it gets message from sortNode or cyclicNode
-	var messageProcessFunc asyncMessageProcessorFunc = func(
-		ctx context.Context, msg pmessage.Message,
-	) (bool, error) {
-		return actorSinkNode.HandleMessage(sdtTableContext, msg)
-	}
-	t.nodes = append(t.nodes, NewActorNode(messageFetchFunc, messageProcessFunc))
-
-	t.started = true
-	log.Info("table actor is started",
-		zap.String("tableName", t.tableName),
-		zap.Int64("tableID", t.tableID))
-	return nil
 }
 
 func (t *tableActor) Run(checkpointTs model.Ts) {

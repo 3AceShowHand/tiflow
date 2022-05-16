@@ -62,7 +62,7 @@ type sorterNode struct {
 	// The latest barrier ts that sorter has received.
 	barrierTs model.Ts
 
-	status    *TableStatus
+	status    TableStatus
 	isRunning int32
 	startRun  chan model.Ts
 
@@ -75,7 +75,7 @@ type sorterNode struct {
 func newSorterNode(
 	tableName string, tableID model.TableID, startTs model.Ts,
 	flowController tableFlowController, mounter entry.Mounter,
-	replConfig *config.ReplicaConfig, status *TableStatus,
+	replConfig *config.ReplicaConfig,
 ) *sorterNode {
 	return &sorterNode{
 		tableName:      tableName,
@@ -84,7 +84,7 @@ func newSorterNode(
 		mounter:        mounter,
 		resolvedTs:     startTs,
 		barrierTs:      startTs,
-		status:         status,
+		status:         TableStatusPreparing,
 		startRun:       make(chan model.Ts, 1),
 		replConfig:     replConfig,
 	}

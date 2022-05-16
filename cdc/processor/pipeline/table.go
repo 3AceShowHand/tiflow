@@ -15,6 +15,7 @@ package pipeline
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/pingcap/log"
@@ -37,6 +38,44 @@ const (
 	resolvedTsInterpolateInterval = 200 * time.Millisecond
 )
 
+// TableStatus is status of the table pipeline
+type TableStatus int32
+
+// TableStatus for table pipeline
+const (
+	TableStatusPreparing TableStatus = iota
+	TableStatusPrepared
+	TableStatusReplicating
+	TableStatusStopping
+	TableStatusStopped
+)
+
+func (s TableStatus) String() string {
+	switch s {
+	case TableStatusPreparing:
+		return "Preparing"
+	case TableStatusPrepared:
+		return "Prepared"
+	case TableStatusReplicating:
+		return "replicating"
+	case TableStatusStopping:
+		return "stopping"
+	case TableStatusStopped:
+		return "Stopped"
+	}
+	return "Unknown"
+}
+
+// Load TableStatus with THREAD-SAFE
+func (s *TableStatus) Load() TableStatus {
+	return TableStatus(atomic.LoadInt32((*int32)(s)))
+}
+
+// Store TableStatus with THREAD-SAFE
+func (s *TableStatus) Store(new TableStatus) {
+	atomic.StoreInt32((*int32)(s), int32(new))
+}
+
 // TablePipeline is a pipeline which capture the change log from tikv in a table
 type TablePipeline interface {
 	// ID returns the ID of source table and mark table
@@ -51,6 +90,10 @@ type TablePipeline interface {
 	UpdateBarrierTs(ts model.Ts)
 	// AsyncStop tells the pipeline to stop, and returns true is the pipeline is already stopped.
 	AsyncStop(targetTs model.Ts) bool
+
+	// Start the table Pipeline, `prepared` -> `replicating`
+	Start() error
+
 	// Run transit table state from ready to run.
 	Run(checkpointTs model.Ts)
 	// Workload returns the workload of this table
@@ -168,6 +211,11 @@ func (t *tablePipelineImpl) Run(checkpointTs model.Ts) {
 	close(t.sorterNode.startRun)
 }
 
+// Start the table Pipeline, `prepared` -> `replicating`
+func (t *tablePipelineImpl) Start() error {
+	return nil
+}
+
 // Assume 1KB per row in upstream TiDB, it takes about 250 MB (1024*4*64) for
 // replicating 1024 tables in the worst case.
 const defaultOutputChannelSize = 64
@@ -212,11 +260,10 @@ func NewTablePipeline(ctx cdcContext.Context,
 		runnerSize++
 	}
 
-	status := TableStatusPreparing
 	p := pipeline.NewPipeline(ctx, 500*time.Millisecond, runnerSize, defaultOutputChannelSize)
 	sorterNode := newSorterNode(tableName, tableID, replicaInfo.StartTs,
-		flowController, mounter, replConfig, &status)
-	sinkNode := newSinkNode(tableID, sink, replicaInfo.StartTs, targetTs, flowController, &status)
+		flowController, mounter, replConfig)
+	sinkNode := newSinkNode(tableID, sink, replicaInfo.StartTs, targetTs, flowController)
 
 	p.AppendNode(ctx, "puller", newPullerNode(tableID, replicaInfo, tableName, changefeed))
 	p.AppendNode(ctx, "sorter", sorterNode)

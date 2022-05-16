@@ -845,7 +845,6 @@ func (p *processor) createTablePipelineImpl(
 	}
 	var table tablepipeline.TablePipeline
 	if config.GetGlobalServerConfig().Debug.EnableTableActor {
-		var err error
 		table, err = tablepipeline.NewTableActor(
 			ctx,
 			p.upStream,
@@ -856,7 +855,10 @@ func (p *processor) createTablePipelineImpl(
 			sink,
 			p.changefeed.Info.GetTargetTs())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return table, errors.Trace(err)
+		}
+		if err := table.Start(); err != nil {
+			return table, errors.Trace(err)
 		}
 	} else {
 		table = tablepipeline.NewTablePipeline(
