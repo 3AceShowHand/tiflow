@@ -46,9 +46,9 @@ type coordinator struct {
 	revision     schedulepb.OwnerRevision
 	captureID    model.CaptureID
 	trans        transport
-	schedulers   map[schedulerType]scheduler
 	replicationM *replicationManager
 	captureM     *captureManager
+	schedulerM   *schedulerManager
 
 	lastCollectTime time.Time
 	changefeedID    model.ChangeFeedID
@@ -82,19 +82,14 @@ func newCoordinator(
 	cfg *config.SchedulerConfig,
 ) *coordinator {
 	revision := schedulepb.OwnerRevision{Revision: ownerRevision}
-	schedulers := make(map[schedulerType]scheduler)
-	schedulers[schedulerTypeBasic] = newBasicScheduler()
-	schedulers[schedulerTypeBalance] = newBalanceScheduler(cfg)
-	schedulers[schedulerTypeMoveTable] = newMoveTableScheduler()
-	schedulers[schedulerTypeRebalance] = newRebalanceScheduler()
 
 	return &coordinator{
 		version:      version.ReleaseSemver(),
 		revision:     revision,
 		captureID:    captureID,
-		schedulers:   schedulers,
 		replicationM: newReplicationManager(cfg.MaxTaskConcurrency, changefeedID),
 		captureM:     newCaptureManager(changefeedID, revision, cfg.HeartbeatTick),
+		schedulerM:   newSchedulerManager(cfg),
 		tasksCounter: make(map[struct {
 			scheduler string
 			task      string

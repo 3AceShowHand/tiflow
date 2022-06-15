@@ -13,11 +13,25 @@
 
 package tp
 
+import (
+	"github.com/pingcap/tiflow/pkg/config"
+)
+
 type schedulerManager struct {
+	schedulers map[schedulerType]scheduler
 }
 
-func newSchedulerManager() *schedulerManager {
-	return &schedulerManager{}
+func newSchedulerManager(cfg *config.SchedulerConfig) *schedulerManager {
+	sm := &schedulerManager{
+		schedulers: make(map[schedulerType]scheduler),
+	}
+
+	sm.schedulers[schedulerTypeBasic] = newBasicScheduler()
+	sm.schedulers[schedulerTypeBalance] = newBalanceScheduler(cfg)
+	sm.schedulers[schedulerTypeMoveTable] = newMoveTableScheduler()
+	sm.schedulers[schedulerTypeRebalance] = newRebalanceScheduler()
+
+	return sm
 }
 
 func (sm *schedulerManager) poll() []*scheduleTask {
