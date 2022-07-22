@@ -197,6 +197,8 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 				continue
 			}
 
+			// once `Resolved` received, all regions is connected,
+			// since it guarantees that all event with smaller commit ts have been emitted.
 			if e.Resolved != nil {
 				metricTxnCollectCounterResolved.Inc()
 				if !regionspan.IsSubSpan(e.Resolved.Span, p.spans...) {

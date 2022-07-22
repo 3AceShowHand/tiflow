@@ -509,21 +509,10 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64) error {
 	eventFeedGauge.Inc()
 	defer eventFeedGauge.Dec()
 
-	log.Info("event feed started",
-		zap.Stringer("span", s.totalSpan), zap.Uint64("startTs", ts),
-		zap.String("namespace", s.client.changefeed.Namespace),
-		zap.String("changefeed", s.client.changefeed.ID))
-
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(func() error {
-		return s.dispatchRequest(ctx)
-	})
-
-	g.Go(func() error {
-		return s.requestRegionToStore(ctx, g)
-	})
-
+	s.requestRangeCh <- rangeRequestTask{span: s.totalSpan, ts: ts}
+	s.rangeChSizeGauge.Inc()
 	g.Go(func() error {
 		for {
 			select {
@@ -531,19 +520,27 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64) error {
 				return ctx.Err()
 			case task := <-s.requestRangeCh:
 				s.rangeChSizeGauge.Dec()
-				// divideAndSendEventFeedToRegions could be block for some time,
+				// divideAndSendEventFeedToRegions could be blocked for some time,
 				// since it must wait for the region lock available. In order to
 				// consume region range request from `requestRangeCh` as soon as
 				// possible, we create a new goroutine to handle it.
-				// The sequence of region range we process is not matter, the
+				// The sequence of region range we process does not matter, the
 				// region lock keeps the region access sequence.
-				// Besides the count or frequency of range request is limited,
+				// Besides, the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
 					return s.divideAndSendEventFeedToRegions(ctx, task.span, task.ts)
 				})
 			}
 		}
+	})
+
+	g.Go(func() error {
+		return s.dispatchRequest(ctx)
+	})
+
+	g.Go(func() error {
+		return s.requestRegionToStore(ctx, g)
 	})
 
 	tableID, tableName := contextutil.TableIDFromCtx(ctx)
@@ -594,8 +591,10 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64) error {
 		return s.regionRouter.Run(ctx)
 	})
 
-	s.requestRangeCh <- rangeRequestTask{span: s.totalSpan, ts: ts}
-	s.rangeChSizeGauge.Inc()
+	log.Info("event feed started",
+		zap.Stringer("span", s.totalSpan), zap.Uint64("startTs", ts),
+		zap.String("namespace", s.client.changefeed.Namespace),
+		zap.String("changefeed", s.client.changefeed.ID))
 
 	return g.Wait()
 }
@@ -858,7 +857,7 @@ func (s *eventFeedSession) requestRegionToStore(
 // establishing new stream, a goroutine will be spawned to handle events from
 // the stream.
 // Regions from `regionCh` will be connected. If any error happens to a
-// region, the error will be send to `errCh` and the receiver of `errCh` is
+// region, the error will be sent to `errCh` and the receiver of `errCh` is
 // responsible for handling the error.
 func (s *eventFeedSession) dispatchRequest(
 	ctx context.Context,
@@ -931,8 +930,6 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 	limit := 20
 	nextSpan := span
 
-	// Max backoff 500ms.
-	scanRegionMaxBackoff := int64(500)
 	for {
 		var (
 			regions []*tikv.Region
@@ -950,7 +947,7 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 			for _, region := range regions {
 				if region.GetMeta() == nil {
 					err = cerror.ErrMetaNotInRegion.GenWithStackByArgs()
-					log.Warn("batch load region",
+					log.Warn("batch load region get meta failed",
 						zap.Stringer("span", nextSpan), zap.Error(err),
 						zap.String("namespace", s.client.changefeed.Namespace),
 						zap.String("changefeed", s.client.changefeed.ID),
@@ -961,7 +958,7 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 			}
 			if !regionspan.CheckRegionsLeftCover(metas, nextSpan) {
 				err = cerror.ErrRegionsNotCoverSpan.GenWithStackByArgs(nextSpan, metas)
-				log.Warn("ScanRegions",
+				log.Warn("region does not left cover the span",
 					zap.Stringer("span", nextSpan),
 					zap.Reflect("regions", metas), zap.Error(err),
 					zap.String("namespace", s.client.changefeed.Namespace),
@@ -969,38 +966,34 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 				)
 				return err
 			}
-			log.Debug("ScanRegions",
+			log.Debug("scan regions success",
 				zap.Stringer("span", nextSpan),
 				zap.Reflect("regions", metas),
 				zap.String("namespace", s.client.changefeed.Namespace),
 				zap.String("changefeed", s.client.changefeed.ID))
 			return nil
-		}, retry.WithBackoffMaxDelay(scanRegionMaxBackoff),
-			retry.WithTotalRetryDuratoin(time.Duration(s.client.config.RegionRetryDuration)))
+		}, retry.WithBackoffMaxDelay(500),
+			retry.WithTotalRetryDuration(time.Duration(s.client.config.RegionRetryDuration)))
 		if retryErr != nil {
+			log.Warn("batch load regions from pd failed", zap.Error(err))
 			return retryErr
 		}
 
-		for _, tiRegion := range regions {
-			region := tiRegion.GetMeta()
-			partialSpan, err := regionspan.Intersect(s.totalSpan, regionspan.ComparableSpan{Start: region.StartKey, End: region.EndKey})
+		for _, region := range regions {
+			meta := region.GetMeta()
+			partialSpan, err := regionspan.Intersect(s.totalSpan, regionspan.ComparableSpan{Start: meta.StartKey, End: meta.EndKey})
 			if err != nil {
 				return errors.Trace(err)
 			}
-			log.Debug("get partialSpan",
-				zap.Stringer("span", partialSpan),
-				zap.Uint64("regionID", region.Id),
-				zap.String("namespace", s.client.changefeed.Namespace),
-				zap.String("changefeed", s.client.changefeed.ID))
-			nextSpan.Start = region.EndKey
 
-			sri := newSingleRegionInfo(tiRegion.VerID(), partialSpan, ts, nil)
+			nextSpan.Start = meta.EndKey
+			sri := newSingleRegionInfo(region.VerID(), partialSpan, ts, nil)
 			s.scheduleRegionRequest(ctx, sri)
-			log.Debug("partialSpan scheduled",
+			log.Debug("get partial span and scheduled",
 				zap.String("namespace", s.client.changefeed.Namespace),
 				zap.String("changefeed", s.client.changefeed.ID),
 				zap.Stringer("span", partialSpan),
-				zap.Uint64("regionID", region.Id),
+				zap.Uint64("regionID", meta.Id),
 				zap.Any("sri", sri))
 
 			// return if no more regions
