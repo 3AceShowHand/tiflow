@@ -262,7 +262,7 @@ type regionEventFeedLimiters struct {
 	limiters map[uint64]*rate.Limiter
 }
 
-var defaultRegionEventFeedLimiters *regionEventFeedLimiters = &regionEventFeedLimiters{
+var defaultRegionEventFeedLimiters = &regionEventFeedLimiters{
 	limiters: make(map[uint64]*rate.Limiter),
 }
 
@@ -288,8 +288,8 @@ type eventFeedStream struct {
 	conn   *sharedConn
 }
 
-// CDCKVClient is an interface to receives kv changed logs from TiKV
-type CDCKVClient interface {
+// Client is an interface to receives kv changed logs from TiKV
+type Client interface {
 	EventFeed(
 		ctx context.Context,
 		span regionspan.ComparableSpan,
@@ -300,11 +300,11 @@ type CDCKVClient interface {
 	) error
 }
 
-// NewCDCKVClient is the constructor of CDC KV client
-var NewCDCKVClient = NewCDCClient
+// NewClient is the constructor of CDC KV client
+var NewClient = New
 
-// CDCClient to get events from TiKV
-type CDCClient struct {
+// client to get events from TiKV
+type client struct {
 	pd pd.Client
 
 	config    *config.KVClientConfig
@@ -319,8 +319,8 @@ type CDCClient struct {
 	regionLimiters *regionEventFeedLimiters
 }
 
-// NewCDCClient creates a CDCClient instance
-func NewCDCClient(
+// New creates a client instance
+func New(
 	ctx context.Context,
 	pd pd.Client,
 	grpcPool GrpcPool,
@@ -328,10 +328,10 @@ func NewCDCClient(
 	pdClock pdutil.Clock,
 	changefeed model.ChangeFeedID,
 	cfg *config.KVClientConfig,
-) (c CDCKVClient) {
+) (c Client) {
 	clusterID := pd.GetClusterID(ctx)
 
-	c = &CDCClient{
+	c = &client{
 		clusterID:      clusterID,
 		config:         cfg,
 		pd:             pd,
@@ -344,11 +344,11 @@ func NewCDCClient(
 	return
 }
 
-func (c *CDCClient) getRegionLimiter(regionID uint64) *rate.Limiter {
+func (c *client) getRegionLimiter(regionID uint64) *rate.Limiter {
 	return c.regionLimiters.getLimiter(regionID)
 }
 
-func (c *CDCClient) newStream(ctx context.Context, addr string, storeID uint64) (stream *eventFeedStream, newStreamErr error) {
+func (c *client) newStream(ctx context.Context, addr string, storeID uint64) (stream *eventFeedStream, newStreamErr error) {
 	newStreamErr = retry.Do(ctx, func() (err error) {
 		var conn *sharedConn
 		defer func() {
@@ -405,7 +405,7 @@ type PullerInitialization interface {
 // a EventFeed to each of the individual region. It streams back result on the
 // provided channel.
 // The `Start` and `End` field in input span must be memcomparable encoded.
-func (c *CDCClient) EventFeed(
+func (c *client) EventFeed(
 	ctx context.Context, span regionspan.ComparableSpan, ts uint64,
 	lockResolver txnutil.LockResolver,
 	isPullerInit PullerInitialization,
@@ -428,7 +428,7 @@ func currentRequestID() uint64 {
 }
 
 type eventFeedSession struct {
-	client *CDCClient
+	client *client
 
 	lockResolver txnutil.LockResolver
 	isPullerInit PullerInitialization
@@ -471,7 +471,7 @@ type rangeRequestTask struct {
 
 func newEventFeedSession(
 	ctx context.Context,
-	client *CDCClient,
+	client *client,
 	totalSpan regionspan.ComparableSpan,
 	lockResolver txnutil.LockResolver,
 	isPullerInit PullerInitialization,

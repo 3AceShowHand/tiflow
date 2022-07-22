@@ -202,7 +202,7 @@ func prepareBenchMultiStore(b *testing.B, storeNum, regionNum int) (
 	defer grpcPool.Close()
 	regionCache := tikv.NewRegionCache(pdClient)
 	defer regionCache.Close()
-	cdcClient := NewCDCClient(
+	cdcClient := New(
 		ctx, pdClient, grpcPool, regionCache, pdutil.NewClock4Test(),
 		model.DefaultChangeFeedID(""),
 		config.GetDefaultServerConfig().KVClient)
@@ -299,7 +299,7 @@ func prepareBench(b *testing.B, regionNum int) (
 	defer grpcPool.Close()
 	regionCache := tikv.NewRegionCache(pdClient)
 	defer regionCache.Close()
-	cdcClient := NewCDCClient(
+	cdcClient := New(
 		ctx, pdClient, grpcPool, regionCache, pdutil.NewClock4Test(),
 		model.DefaultChangeFeedID(""),
 		config.GetDefaultServerConfig().KVClient)

@@ -63,7 +63,7 @@ func newMockCDCKVClient(
 	pdClock pdutil.Clock,
 	changefeed model.ChangeFeedID,
 	cfg *config.KVClientConfig,
-) kv.CDCKVClient {
+) kv.Client {
 	return &mockCDCKVClient{
 		expectations: make(chan model.RegionFeedEvent, 1024),
 	}
@@ -115,10 +115,10 @@ func newPullerForTest(
 	ctx, cancel := context.WithCancel(context.Background())
 	store, err := mockstore.NewMockStore()
 	require.Nil(t, err)
-	backupNewCDCKVClient := kv.NewCDCKVClient
-	kv.NewCDCKVClient = newMockCDCKVClient
+	backupNewCDCKVClient := kv.NewClient
+	kv.NewClient = newMockCDCKVClient
 	defer func() {
-		kv.NewCDCKVClient = backupNewCDCKVClient
+		kv.NewClient = backupNewCDCKVClient
 	}()
 	pdCli := &mockPdClientForPullerTest{clusterID: uint64(1)}
 	grpcPool := kv.NewGrpcPoolImpl(ctx, &security.Credential{})

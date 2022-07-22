@@ -51,7 +51,7 @@ type Puller interface {
 }
 
 type pullerImpl struct {
-	kvCli        kv.CDCKVClient
+	kvCli        kv.Client
 	kvStorage    tikv.Storage
 	checkpointTs uint64
 	spans        []regionspan.ComparableSpan
@@ -85,7 +85,7 @@ func New(ctx context.Context,
 	// the initial ts for frontier to 0. Once the puller level resolved ts
 	// initialized, the ts should advance to a non-zero value.
 	tsTracker := frontier.NewFrontier(0, comparableSpans...)
-	kvCli := kv.NewCDCKVClient(
+	kvCli := kv.NewClient(
 		ctx, pdCli, grpcPool, regionCache, pdClock, changefeed, cfg)
 	p := &pullerImpl{
 		kvCli:        kvCli,
