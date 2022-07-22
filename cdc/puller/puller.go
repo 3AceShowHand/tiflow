@@ -59,6 +59,9 @@ type pullerImpl struct {
 	tsTracker    frontier.Frontier
 	resolvedTs   uint64
 	initialized  int64
+
+	changefeedID model.ChangeFeedID
+	tableID      model.TableID
 }
 
 // New create a new Puller fetch event start from checkpointTs and put into buf.
@@ -72,6 +75,7 @@ func New(ctx context.Context,
 	spans []regionspan.Span,
 	cfg *config.KVClientConfig,
 	changefeed model.ChangeFeedID,
+	table model.TableID,
 ) Puller {
 	tikvStorage, ok := kvStorage.(tikv.Storage)
 	if !ok {
@@ -96,8 +100,35 @@ func New(ctx context.Context,
 		tsTracker:    tsTracker,
 		resolvedTs:   checkpointTs,
 		initialized:  0,
+
+		changefeedID: changefeed,
+		tableID:      table,
 	}
 	return p
+}
+
+func (p *pullerImpl) consumeRawKVEntry(ctx context.Context, raw *model.RawKVEntry) error {
+	// even after https://github.com/pingcap/tiflow/pull/2038, kv client
+	// could still miss region change notification, which leads to resolved
+	// ts update missing in puller, however resolved ts fallback here can
+	// be ignored since no late data is received and the guarantee of
+	// resolved ts is not broken.
+	if raw.CRTs < p.resolvedTs || (raw.CRTs == p.resolvedTs && raw.OpType != model.OpTypeResolved) {
+		log.Warn("The CRTs is fallen back in puller",
+			zap.String("namespace", p.changefeedID.Namespace),
+			zap.String("changefeed", p.changefeedID.ID),
+			zap.Reflect("row", raw),
+			zap.Uint64("CRTs", raw.CRTs),
+			zap.Uint64("resolvedTs", p.resolvedTs),
+			zap.Int64("tableID", p.tableID))
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return errors.Trace(ctx.Err())
+	case p.outputCh <- raw:
+	}
+	return nil
 }
 
 // Run the puller, continually fetch event from TiKV and add event into buffer
@@ -108,7 +139,7 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 	eventCh := make(chan model.RegionFeedEvent, defaultPullerEventChanSize)
 
 	lockResolver := txnutil.NewLockerResolver(p.kvStorage,
-		contextutil.ChangefeedIDFromCtx(ctx), contextutil.RoleFromCtx(ctx))
+		p.changefeedID, contextutil.RoleFromCtx(ctx))
 	for _, span := range p.spans {
 		span := span
 
@@ -117,56 +148,31 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 		})
 	}
 
-	changefeedID := contextutil.ChangefeedIDFromCtx(ctx)
-	tableID, _ := contextutil.TableIDFromCtx(ctx)
 	metricOutputChanSize := outputChanSizeHistogram.
-		WithLabelValues(changefeedID.Namespace, changefeedID.ID)
+		WithLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
 	metricEventChanSize := eventChanSizeHistogram.
-		WithLabelValues(changefeedID.Namespace, changefeedID.ID)
+		WithLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
 	metricPullerResolvedTs := pullerResolvedTsGauge.
-		WithLabelValues(changefeedID.Namespace, changefeedID.ID)
+		WithLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
 	metricTxnCollectCounterKv := txnCollectCounter.
-		WithLabelValues(changefeedID.Namespace, changefeedID.ID, "kv")
+		WithLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "kv")
 	metricTxnCollectCounterResolved := txnCollectCounter.
-		WithLabelValues(changefeedID.Namespace, changefeedID.ID, "resolved")
+		WithLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "resolved")
 	defer func() {
-		outputChanSizeHistogram.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID)
-		eventChanSizeHistogram.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID)
-		memBufferSizeGauge.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID)
-		pullerResolvedTsGauge.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID)
-		kvEventCounter.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID, "kv")
-		kvEventCounter.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID, "resolved")
-		txnCollectCounter.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID, "kv")
-		txnCollectCounter.DeleteLabelValues(changefeedID.Namespace, changefeedID.ID, "resolved")
+		outputChanSizeHistogram.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
+		eventChanSizeHistogram.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
+		memBufferSizeGauge.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
+		pullerResolvedTsGauge.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID)
+		kvEventCounter.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "kv")
+		kvEventCounter.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "resolved")
+		txnCollectCounter.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "kv")
+		txnCollectCounter.DeleteLabelValues(p.changefeedID.Namespace, p.changefeedID.ID, "resolved")
 	}()
 
 	lastResolvedTs := p.checkpointTs
 	g.Go(func() error {
 		metricsTicker := time.NewTicker(15 * time.Second)
 		defer metricsTicker.Stop()
-		output := func(raw *model.RawKVEntry) error {
-			// even after https://github.com/pingcap/tiflow/pull/2038, kv client
-			// could still miss region change notification, which leads to resolved
-			// ts update missing in puller, however resolved ts fallback here can
-			// be ignored since no late data is received and the guarantee of
-			// resolved ts is not broken.
-			if raw.CRTs < p.resolvedTs || (raw.CRTs == p.resolvedTs && raw.OpType != model.OpTypeResolved) {
-				log.Warn("The CRTs is fallen back in puller",
-					zap.String("namespace", changefeedID.Namespace),
-					zap.String("changefeed", changefeedID.ID),
-					zap.Reflect("row", raw),
-					zap.Uint64("CRTs", raw.CRTs),
-					zap.Uint64("resolvedTs", p.resolvedTs),
-					zap.Int64("tableID", tableID))
-				return nil
-			}
-			select {
-			case <-ctx.Done():
-				return errors.Trace(ctx.Err())
-			case p.outputCh <- raw:
-			}
-			return nil
-		}
 
 		start := time.Now()
 		initialized := false
@@ -185,7 +191,7 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 
 			if e.Val != nil {
 				metricTxnCollectCounterKv.Inc()
-				if err := output(e.Val); err != nil {
+				if err := p.consumeRawKVEntry(ctx, e.Val); err != nil {
 					return errors.Trace(err)
 				}
 				continue
@@ -195,10 +201,10 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 				metricTxnCollectCounterResolved.Inc()
 				if !regionspan.IsSubSpan(e.Resolved.Span, p.spans...) {
 					log.Panic("the resolved span is not in the total span",
-						zap.String("namespace", changefeedID.Namespace),
-						zap.String("changefeed", changefeedID.ID),
+						zap.String("namespace", p.changefeedID.Namespace),
+						zap.String("changefeed", p.changefeedID.ID),
 						zap.Reflect("resolved", e.Resolved),
-						zap.Int64("tableID", tableID),
+						zap.Int64("tableID", p.tableID),
 						zap.Reflect("spans", p.spans),
 					)
 				}
@@ -216,10 +222,10 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 						spans = append(spans, p.spans[i].String())
 					}
 					log.Info("puller is initialized",
-						zap.String("namespace", changefeedID.Namespace),
-						zap.String("changefeed", changefeedID.ID),
+						zap.String("namespace", p.changefeedID.Namespace),
+						zap.String("changefeed", p.changefeedID.ID),
 						zap.Duration("duration", time.Since(start)),
-						zap.Int64("tableID", tableID),
+						zap.Int64("tableID", p.tableID),
 						zap.Strings("spans", spans),
 						zap.Uint64("resolvedTs", resolvedTs))
 				}
@@ -227,7 +233,12 @@ func (p *pullerImpl) Run(ctx context.Context) error {
 					continue
 				}
 				lastResolvedTs = resolvedTs
-				err := output(&model.RawKVEntry{CRTs: resolvedTs, OpType: model.OpTypeResolved, RegionID: e.RegionID})
+				err := p.consumeRawKVEntry(ctx,
+					&model.RawKVEntry{
+						CRTs:     resolvedTs,
+						OpType:   model.OpTypeResolved,
+						RegionID: e.RegionID,
+					})
 				if err != nil {
 					return errors.Trace(err)
 				}

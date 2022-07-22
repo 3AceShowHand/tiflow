@@ -203,7 +203,7 @@ func NewDDLJobPuller(
 	changefeed model.ChangeFeedID,
 ) (DDLJobPuller, error) {
 	return &ddlJobPullerImpl{
-		puller:    New(ctx, pdCli, grpcPool, regionCache, kvStorage, pdClock, checkpointTs, regionspan.GetAllDDLSpan(), cfg, changefeed),
+		puller:    New(ctx, pdCli, grpcPool, regionCache, kvStorage, pdClock, checkpointTs, regionspan.GetAllDDLSpan(), cfg, changefeed, model.TableID(0)),
 		kvStorage: kvStorage,
 		outputCh:  make(chan *model.DDLJobEntry, defaultPullerOutputChanSize),
 	}, nil

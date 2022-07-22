@@ -84,6 +84,7 @@ func (n *pullerNode) start(ctx pipeline.NodeContext,
 		n.tableSpan(ctx),
 		kvCfg,
 		n.changefeed,
+		n.tableID,
 	)
 	n.wg.Go(func() error {
 		ctx.Throw(errors.Trace(plr.Run(ctxC)))
