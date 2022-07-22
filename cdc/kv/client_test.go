@@ -3611,7 +3611,7 @@ func TestPrewriteNotMatchError(t *testing.T) {
 func createFakeEventFeedSession(ctx context.Context) *eventFeedSession {
 	return newEventFeedSession(ctx,
 		&CDCClient{
-			regionLimiters: defaultRegionEventFeedLimiters,
+			regionLimiters: newRegionEventFeedLimiters(),
 			config:         config.GetDefaultServerConfig().KVClient,
 		},
 		regionspan.ComparableSpan{Start: []byte("a"), End: []byte("b")},

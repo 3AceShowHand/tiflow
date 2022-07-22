@@ -262,11 +262,13 @@ type regionEventFeedLimiters struct {
 	limiters map[uint64]*rate.Limiter
 }
 
-var defaultRegionEventFeedLimiters *regionEventFeedLimiters = &regionEventFeedLimiters{
-	limiters: make(map[uint64]*rate.Limiter),
+func newRegionEventFeedLimiters() *regionEventFeedLimiters {
+	return &regionEventFeedLimiters{
+		limiters: make(map[uint64]*rate.Limiter),
+	}
 }
 
-func (rl *regionEventFeedLimiters) getLimiter(regionID uint64) *rate.Limiter {
+func (rl *regionEventFeedLimiters) get(regionID uint64) *rate.Limiter {
 	var limiter *rate.Limiter
 	var ok bool
 
@@ -339,13 +341,13 @@ func NewCDCClient(
 		regionCache:    regionCache,
 		pdClock:        pdClock,
 		changefeed:     changefeed,
-		regionLimiters: defaultRegionEventFeedLimiters,
+		regionLimiters: newRegionEventFeedLimiters(),
 	}
 	return
 }
 
 func (c *CDCClient) getRegionLimiter(regionID uint64) *rate.Limiter {
-	return c.regionLimiters.getLimiter(regionID)
+	return c.regionLimiters.get(regionID)
 }
 
 func (c *CDCClient) newStream(ctx context.Context, addr string, storeID uint64) (stream *eventFeedStream, newStreamErr error) {
