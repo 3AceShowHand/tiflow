@@ -233,19 +233,16 @@ func (l *RegionRangeLock) tryLockRange(startKey, endKey []byte, regionID, versio
 	}
 
 	// Format overlapping ranges for printing log
-	var overlapStr []string
-	for _, r := range overlappingEntries {
-		overlapStr = append(overlapStr, fmt.Sprintf("regionID: %v, ver: %v, start: %v, end: %v",
-			r.regionID, r.version, hex.EncodeToString(r.startKey), hex.EncodeToString(r.endKey))) // DEBUG
-	}
-
+	overlappingStr := make([]string, len(overlappingEntries))
 	isStale := false
-	for _, r := range overlappingEntries {
+	for i, r := range overlappingEntries {
+		overlappingStr[i] = fmt.Sprintf("regionID: %v, ver: %v, start: %v, end: %v",
+			r.regionID, r.version, hex.EncodeToString(r.startKey), hex.EncodeToString(r.endKey))
 		if r.version >= version {
 			isStale = true
-			break
 		}
 	}
+
 	if isStale {
 		retryRanges := make([]ComparableSpan, 0)
 		currentRangeStartKey := startKey
@@ -255,7 +252,7 @@ func (l *RegionRangeLock) tryLockRange(startKey, endKey []byte, regionID, versio
 			zap.Uint64("lockID", l.id), zap.Uint64("regionID", regionID),
 			zap.String("startKey", hex.EncodeToString(startKey)),
 			zap.String("endKey", hex.EncodeToString(endKey)),
-			zap.Strings("allOverlapping", overlapStr)) // DEBUG
+			zap.Strings("allOverlapping", overlappingStr)) // DEBUG
 
 		for _, r := range overlappingEntries {
 			// Ignore the totally-disjointed range which may be added to the list because of
@@ -294,7 +291,7 @@ func (l *RegionRangeLock) tryLockRange(startKey, endKey []byte, regionID, versio
 		zap.Uint64("lockID", l.id), zap.Uint64("regionID", regionID),
 		zap.String("startKey", hex.EncodeToString(startKey)),
 		zap.String("endKey", hex.EncodeToString(endKey)),
-		zap.Strings("blockedBy", overlapStr)) // DEBUG
+		zap.Strings("blockedBy", overlappingStr)) // DEBUG
 
 	return LockRangeResult{
 		Status: LockRangeStatusWait,
