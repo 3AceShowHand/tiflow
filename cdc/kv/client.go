@@ -960,7 +960,7 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 				err = cerror.ErrRegionsNotCoverSpan.GenWithStackByArgs(nextSpan, metas)
 				log.Warn("region does not left cover the span",
 					zap.Stringer("span", nextSpan),
-					zap.Reflect("regions", metas), zap.Error(err),
+					zap.Any("regions", metas), zap.Error(err),
 					zap.String("namespace", s.client.changefeed.Namespace),
 					zap.String("changefeed", s.client.changefeed.ID),
 				)
@@ -968,7 +968,7 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 			}
 			log.Debug("scan regions success",
 				zap.Stringer("span", nextSpan),
-				zap.Reflect("regions", metas),
+				zap.Any("regions", metas),
 				zap.String("namespace", s.client.changefeed.Namespace),
 				zap.String("changefeed", s.client.changefeed.ID))
 			return nil
