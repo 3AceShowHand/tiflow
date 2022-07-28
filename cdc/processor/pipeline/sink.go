@@ -25,6 +25,7 @@ import (
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/redo"
 	"github.com/pingcap/tiflow/cdc/sink"
+	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	pmessage "github.com/pingcap/tiflow/pkg/pipeline/message"
 	"go.uber.org/zap"
@@ -143,9 +144,11 @@ func (n *sinkNode) flushSink(ctx context.Context, resolved model.ResolvedTs) (er
 				zap.Uint64("barrierTs", currentBarrierTs))
 		}
 
-		// TODO: remove this check after SchedulerV3 become the first choice.
-		if resolved.Ts > redoTs {
-			resolved = model.NewResolvedTs(redoTs)
+		//// TODO: remove this check after SchedulerV3 become the first choice.
+		if !config.GetGlobalServerConfig().Debug.EnableSchedulerV3 {
+			if resolved.Ts > redoTs {
+				resolved = model.NewResolvedTs(redoTs)
+			}
 		}
 	}
 
