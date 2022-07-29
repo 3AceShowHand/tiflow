@@ -336,9 +336,13 @@ func (c *changefeed) tick(ctx cdcContext.Context, state *orchestrator.Changefeed
 			if flushedResolvedTs != 0 {
 				// It's not necessary to replace newCheckpointTs with flushedResolvedTs,
 				// as cdc can ensure newCheckpointTs can never exceed prevResolvedTs.
-				newResolvedTs = flushedResolvedTs
+				if flushedResolvedTs > barrierTs {
+					newResolvedTs = flushedResolvedTs
+				}
 			} else {
-				newResolvedTs = prevResolvedTs
+				if prevResolvedTs > barrierTs {
+					newResolvedTs = prevResolvedTs
+				}
 			}
 		}
 		c.updateStatus(newCheckpointTs, newResolvedTs)
