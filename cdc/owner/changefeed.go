@@ -33,6 +33,7 @@ import (
 	"github.com/pingcap/tiflow/pkg/config"
 	cdcContext "github.com/pingcap/tiflow/pkg/context"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/etcd"
 	"github.com/pingcap/tiflow/pkg/orchestrator"
 	"github.com/pingcap/tiflow/pkg/txnutil/gc"
 	"github.com/pingcap/tiflow/pkg/upstream"
@@ -87,6 +88,8 @@ type changefeed struct {
 	initialized bool
 	// isRemoved is true if the changefeed is removed
 	isRemoved bool
+
+	etcdClient etcd.CDCEtcdClient
 
 	// only used for asyncExecDDL function
 	// ddlEventCache is not nil when the changefeed is executing
@@ -226,15 +229,16 @@ func (c *changefeed) handleErr(ctx cdcContext.Context, err error) {
 	c.releaseResources(ctx)
 }
 
-func (c *changefeed) checkStaleCheckpointTs(ctx cdcContext.Context, checkpointTs uint64) error {
-	state := c.state.Info.State
-	if state == model.StateNormal || state == model.StateStopped || state == model.StateError {
+func (c *changefeed) checkStaleCheckpointTs(checkpointTs uint64) error {
+	switch c.state.Info.State {
+	case model.StateNormal, model.StateStopped, model.StateError:
 		failpoint.Inject("InjectChangefeedFastFailError", func() error {
 			return cerror.ErrGCTTLExceeded.FastGen("InjectChangefeedFastFailError")
 		})
-		if err := c.upstream.GCManager.CheckStaleCheckpointTs(ctx, c.id, checkpointTs); err != nil {
+		if err := c.upstream.GCManager.CheckStaleCheckpointTs(c.id, checkpointTs); err != nil {
 			return errors.Trace(err)
 		}
+	default:
 	}
 	return nil
 }
@@ -244,7 +248,7 @@ func (c *changefeed) tick(ctx cdcContext.Context, captures map[model.CaptureID]*
 	checkpointTs := c.state.Info.GetCheckpointTs(c.state.Status)
 	// check stale checkPointTs must be called before `feedStateManager.ShouldRunning()`
 	// to ensure an error or stopped changefeed also be checked
-	if err := c.checkStaleCheckpointTs(ctx, checkpointTs); err != nil {
+	if err := c.checkStaleCheckpointTs(checkpointTs); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -419,7 +423,7 @@ LOOP:
 		ensureTTL := int64(10 * 60)
 		err := gc.EnsureChangefeedStartTsSafety(
 			ctx, c.upstream.PDClient,
-			ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceInitializing),
+			c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceInitializing),
 			c.id, ensureTTL, checkpointTs)
 		if err != nil {
 			return errors.Trace(err)
@@ -427,7 +431,7 @@ LOOP:
 		// clean service GC safepoint '-creating-' and '-resuming-' if there are any.
 		err = gc.UndoEnsureChangefeedStartTsSafety(
 			ctx, c.upstream.PDClient,
-			ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceCreating),
+			c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceCreating),
 			c.id,
 		)
 		if err != nil {
@@ -435,7 +439,7 @@ LOOP:
 		}
 		err = gc.UndoEnsureChangefeedStartTsSafety(
 			ctx, c.upstream.PDClient,
-			ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceResuming),
+			c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceResuming),
 			c.id,
 		)
 		if err != nil {
@@ -524,7 +528,7 @@ LOOP:
 	return nil
 }
 
-func (c *changefeed) releaseResources(ctx cdcContext.Context) {
+func (c *changefeed) releaseResources(ctx context.Context) {
 	// Must clean redo manager before calling cancel, otherwise
 	// the manager can be closed internally.
 	c.cleanupRedoManager(ctx)
@@ -611,15 +615,15 @@ func (c *changefeed) cleanupRedoManager(ctx context.Context) {
 	}
 }
 
-func (c *changefeed) cleanupChangefeedServiceGCSafePoints(ctx cdcContext.Context) {
+func (c *changefeed) cleanupChangefeedServiceGCSafePoints(ctx context.Context) {
 	if !c.isRemoved {
 		return
 	}
 
 	serviceIDs := []string{
-		ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceCreating),
-		ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceResuming),
-		ctx.GlobalVars().EtcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceInitializing),
+		c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceCreating),
+		c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceResuming),
+		c.etcdClient.GetEnsureGCServiceID(gc.EnsureGCServiceInitializing),
 	}
 
 	for _, serviceID := range serviceIDs {
@@ -838,7 +842,7 @@ func (c *changefeed) updateStatus(checkpointTs, resolvedTs model.Ts) {
 	})
 }
 
-func (c *changefeed) Close(ctx cdcContext.Context) {
+func (c *changefeed) Close(ctx context.Context) {
 	startTime := time.Now()
 	c.releaseResources(ctx)
 

@@ -38,7 +38,7 @@ type Manager interface {
 	// Manager may skip update when it thinks it is too frequent.
 	// Set `forceUpdate` to force Manager update.
 	TryUpdateGCSafePoint(ctx context.Context, checkpointTs model.Ts, forceUpdate bool) error
-	CheckStaleCheckpointTs(ctx context.Context, changefeedID model.ChangeFeedID, checkpointTs model.Ts) error
+	CheckStaleCheckpointTs(changefeedID model.ChangeFeedID, checkpointTs model.Ts) error
 }
 
 type gcManager struct {
@@ -105,9 +105,7 @@ func (m *gcManager) TryUpdateGCSafePoint(
 	return nil
 }
 
-func (m *gcManager) CheckStaleCheckpointTs(
-	ctx context.Context, changefeedID model.ChangeFeedID, checkpointTs model.Ts,
-) error {
+func (m *gcManager) CheckStaleCheckpointTs(changefeedID model.ChangeFeedID, checkpointTs model.Ts) error {
 	gcSafepointUpperBound := checkpointTs - 1
 	if m.isTiCDCBlockGC {
 		pdTime, err := m.pdClock.CurrentTime()
