@@ -103,7 +103,7 @@ type captureImpl struct {
 	// This design is to solve the problem that grpc-go cannot gracefully
 	// unregister a service.
 	grpcService *p2p.ServerWrapper
-
+	// cancel is called when close the capture, to release resources.
 	cancel context.CancelFunc
 
 	migrator migrate.Migrator

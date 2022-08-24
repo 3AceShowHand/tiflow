@@ -27,6 +27,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc"
+	"github.com/pingcap/tiflow/cdc/sorter/unified"
 	"github.com/pingcap/tiflow/pkg/pdutil"
 	pd "github.com/tikv/pd/client"
 	"go.etcd.io/etcd/client/pkg/v3/logutil"
@@ -40,7 +41,6 @@ import (
 
 	"github.com/pingcap/tiflow/cdc/capture"
 	"github.com/pingcap/tiflow/cdc/kv"
-	"github.com/pingcap/tiflow/cdc/sorter/unified"
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/etcd"
@@ -282,10 +282,6 @@ func (s *server) run(ctx context.Context) (err error) {
 	})
 
 	wg.Go(func() error {
-		return unified.RunWorkerPool(cctx)
-	})
-
-	wg.Go(func() error {
 		return kv.RunWorkerPool(cctx)
 	})
 
@@ -305,6 +301,12 @@ func (s *server) run(ctx context.Context) (err error) {
 			<-cctx.Done()
 			grpcServer.Stop()
 			return nil
+		})
+	}
+
+	if !conf.Debug.EnableDBSorter {
+		wg.Go(func() error {
+			return unified.RunWorkerPool(cctx)
 		})
 	}
 
