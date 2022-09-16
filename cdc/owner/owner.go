@@ -365,14 +365,12 @@ func (o *ownerImpl) updateMetrics() {
 		totalCounts := infoProvider.GetTotalTableCounts()
 		pendingCounts := infoProvider.GetPendingTableCounts()
 
-		for captureID, info := range o.captures {
+		for captureID := range o.captures {
 			ownerMaintainTableNumGauge.
-				WithLabelValues(cfID.Namespace, cfID.ID,
-					info.AdvertiseAddr, maintainTableTypeTotal).
+				WithLabelValues(cfID.Namespace, cfID.ID, maintainTableTypeTotal).
 				Set(float64(totalCounts[captureID]))
 			ownerMaintainTableNumGauge.
-				WithLabelValues(cfID.Namespace, cfID.ID,
-					info.AdvertiseAddr, maintainTableTypeWip).
+				WithLabelValues(cfID.Namespace, cfID.ID, maintainTableTypeWip).
 				Set(float64(pendingCounts[captureID]))
 		}
 	}
