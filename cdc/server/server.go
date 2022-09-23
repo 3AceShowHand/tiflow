@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -214,6 +215,12 @@ func (s *server) startActorSystems(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if conf.Debug.EnableProfile {
+		runtime.SetBlockProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
+	}
+
 	return nil
 }
 

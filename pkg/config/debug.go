@@ -39,6 +39,8 @@ type DebugConfig struct {
 	// EnableNewSink enables the new sink.
 	// The default value is true.
 	EnableNewSink bool `toml:"enable-new-sink" json:"enable-new-sink"`
+
+	EnableProfile bool `toml:"enable-profile" json:"enable-profile"`
 }
 
 // ValidateAndAdjust validates and adjusts the debug configuration
