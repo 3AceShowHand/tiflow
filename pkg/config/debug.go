@@ -40,7 +40,7 @@ type DebugConfig struct {
 	// The default value is true.
 	EnableNewSink bool `toml:"enable-new-sink" json:"enable-new-sink"`
 
-	EnableProfile bool `toml:"enable-profile" json:"enable-profile"`
+	EnableBlockProfile bool `toml:"enable-block-profile" json:"enable-block-profile"`
 }
 
 // ValidateAndAdjust validates and adjusts the debug configuration

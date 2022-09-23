@@ -65,6 +65,8 @@ func RegisterRoutes(
 	pprofGroup.GET("/profile", gin.WrapF(pprof.Profile))
 	pprofGroup.GET("/symbol", gin.WrapF(pprof.Symbol))
 	pprofGroup.GET("/trace", gin.WrapF(pprof.Trace))
+	pprofGroup.GET("/block", gin.WrapF(pprof.Handler("block").ServeHTTP))
+	pprofGroup.GET("/mutex", gin.WrapF(pprof.Handler("mutex").ServeHTTP))
 	pprofGroup.GET("/threadcreate", gin.WrapF(pprof.Handler("threadcreate").ServeHTTP))
 
 	// Failpoint API

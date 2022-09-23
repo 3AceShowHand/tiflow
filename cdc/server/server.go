@@ -216,7 +216,7 @@ func (s *server) startActorSystems(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	if conf.Debug.EnableProfile {
+	if conf.Debug.EnableBlockProfile {
 		runtime.SetBlockProfileRate(1)
 		runtime.SetMutexProfileFraction(1)
 	}
