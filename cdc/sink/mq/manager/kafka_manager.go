@@ -23,6 +23,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
+	"github.com/pingcap/tiflow/cdc/model"
 	kafkaconfig "github.com/pingcap/tiflow/cdc/sink/mq/producer/kafka"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/retry"
@@ -41,6 +42,8 @@ type kafkaTopicManager struct {
 	topics sync.Map
 
 	lastMetadataRefresh atomic.Int64
+
+	changefeedID model.ChangeFeedID
 }
 
 // NewKafkaTopicManager creates a new topic manager.
@@ -48,11 +51,13 @@ func NewKafkaTopicManager(
 	client kafka.Client,
 	admin kafka.ClusterAdminClient,
 	cfg *kafkaconfig.AutoCreateTopicConfig,
+	changefeedID model.ChangeFeedID,
 ) (*kafkaTopicManager, error) {
 	mgr := &kafkaTopicManager{
-		client: client,
-		admin:  admin,
-		cfg:    cfg,
+		client:       client,
+		admin:        admin,
+		cfg:          cfg,
+		changefeedID: changefeedID,
 	}
 
 	// do an initial metadata fetching using ListTopics
@@ -113,6 +118,8 @@ func (m *kafkaTopicManager) tryUpdatePartitionsAndLogging(topic string, partitio
 			m.topics.Store(topic, partitions)
 			log.Info(
 				"update topic partition number",
+				zap.String("namespace", m.changefeedID.Namespace),
+				zap.String("changefeed", m.changefeedID.ID),
 				zap.String("topic", topic),
 				zap.Int32("oldPartitionNumber", oldPartitions.(int32)),
 				zap.Int32("newPartitionNumber", partitions),
@@ -122,6 +129,8 @@ func (m *kafkaTopicManager) tryUpdatePartitionsAndLogging(topic string, partitio
 		m.topics.Store(topic, partitions)
 		log.Info(
 			"store topic partition number",
+			zap.String("namespace", m.changefeedID.Namespace),
+			zap.String("changefeed", m.changefeedID.ID),
 			zap.String("topic", topic),
 			zap.Int32("partitionNumber", partitions),
 		)
@@ -143,6 +152,8 @@ func (m *kafkaTopicManager) getMetadataOfTopics() ([]*sarama.TopicMetadata, erro
 	if err != nil {
 		log.Warn(
 			"Kafka admin client describe topics failed",
+			zap.String("namespace", m.changefeedID.Namespace),
+			zap.String("changefeed", m.changefeedID.ID),
 			zap.Error(err),
 			zap.Duration("duration", time.Since(start)),
 		)
@@ -151,6 +162,8 @@ func (m *kafkaTopicManager) getMetadataOfTopics() ([]*sarama.TopicMetadata, erro
 
 	log.Info(
 		"Kafka admin client describe topics success",
+		zap.String("namespace", m.changefeedID.Namespace),
+		zap.String("changefeed", m.changefeedID.ID),
 		zap.Duration("duration", time.Since(start)))
 
 	return topicMetaList, nil
@@ -211,6 +224,8 @@ func (m *kafkaTopicManager) listTopics() error {
 	if err != nil {
 		log.Error(
 			"Kafka admin client list topics failed",
+			zap.String("namespace", m.changefeedID.Namespace),
+			zap.String("changefeed", m.changefeedID.ID),
 			zap.Error(err),
 			zap.Duration("duration", time.Since(start)),
 		)
@@ -218,6 +233,8 @@ func (m *kafkaTopicManager) listTopics() error {
 	}
 	log.Info(
 		"Kafka admin client list topics success",
+		zap.String("namespace", m.changefeedID.Namespace),
+		zap.String("changefeed", m.changefeedID.ID),
 		zap.Duration("duration", time.Since(start)),
 	)
 
@@ -246,6 +263,8 @@ func (m *kafkaTopicManager) createTopic(topicName string) (int32, error) {
 	for _, topic := range topicMetaList {
 		if topic.Err != sarama.ErrNoError {
 			log.Error("Kafka admin client fetch topic metadata failed.",
+				zap.String("namespace", m.changefeedID.Namespace),
+				zap.String("changefeed", m.changefeedID.ID),
 				zap.String("topic", topic.Name),
 				zap.Error(topic.Err))
 			continue
@@ -263,6 +282,8 @@ func (m *kafkaTopicManager) createTopic(topicName string) (int32, error) {
 	if targetTopicFound {
 		log.Info(
 			"topic already exists and the cached information has expired",
+			zap.String("namespace", m.changefeedID.Namespace),
+			zap.String("changefeed", m.changefeedID.ID),
 			zap.String("topic", topicName),
 		)
 		return int32(targetTopicPartitionNum), nil
@@ -294,6 +315,8 @@ func (m *kafkaTopicManager) createTopic(topicName string) (int32, error) {
 
 	log.Info(
 		"Kafka admin client create the topic success",
+		zap.String("namespace", m.changefeedID.Namespace),
+		zap.String("changefeed", m.changefeedID.ID),
 		zap.String("topic", topicName),
 		zap.Int32("partitionNumber", m.cfg.PartitionNum),
 		zap.Int16("replicationFactor", m.cfg.ReplicationFactor),

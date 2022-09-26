@@ -25,6 +25,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/contextutil"
+	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/security"
@@ -73,11 +74,13 @@ func NewConfig() *Config {
 }
 
 // set the partition-num by the topic's partition count.
-func (c *Config) setPartitionNum(realPartitionCount int32) error {
+func (c *Config) setPartitionNum(realPartitionCount int32, changefeedID model.ChangeFeedID) error {
 	// user does not specify the `partition-num` in the sink-uri
 	if c.PartitionNum == 0 {
 		c.PartitionNum = realPartitionCount
 		log.Info("partitionNum is not set, set by topic's partition-num",
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID),
 			zap.Int32("partitionNum", realPartitionCount))
 		return nil
 	}
@@ -85,6 +88,8 @@ func (c *Config) setPartitionNum(realPartitionCount int32) error {
 	if c.PartitionNum < realPartitionCount {
 		log.Warn("number of partition specified in sink-uri is less than that of the actual topic. "+
 			"Some partitions will not have messages dispatched to",
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID),
 			zap.Int32("sinkUriPartitions", c.PartitionNum),
 			zap.Int32("topicPartitions", realPartitionCount))
 		return nil
@@ -333,7 +338,9 @@ func (c *Config) DeriveTopicConfig() *AutoCreateTopicConfig {
 }
 
 // NewSaramaConfig return the default config and set the according version and metrics
-func NewSaramaConfig(ctx context.Context, c *Config) (*sarama.Config, error) {
+func NewSaramaConfig(
+	ctx context.Context, c *Config, changefeedID model.ChangeFeedID,
+) (*sarama.Config, error) {
 	config := sarama.NewConfig()
 
 	version, err := sarama.ParseKafkaVersion(c.Version)
@@ -347,7 +354,6 @@ func NewSaramaConfig(ctx context.Context, c *Config) (*sarama.Config, error) {
 		role = "processor"
 	}
 	captureAddr := contextutil.CaptureAddrFromCtx(ctx)
-	changefeedID := contextutil.ChangefeedIDFromCtx(ctx)
 
 	config.ClientID, err = kafkaClientID(role, captureAddr, changefeedID, c.ClientID)
 	if err != nil {

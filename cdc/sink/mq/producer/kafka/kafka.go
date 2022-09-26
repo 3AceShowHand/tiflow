@@ -325,8 +325,8 @@ func NewKafkaSaramaProducer(
 	config *Config,
 	saramaConfig *sarama.Config,
 	errCh chan error,
+	changefeedID model.ChangeFeedID,
 ) (*kafkaSaramaProducer, error) {
-	changefeedID := contextutil.ChangefeedIDFromCtx(ctx)
 	role := contextutil.RoleFromCtx(ctx)
 	log.Info("Starting kafka sarama producer ...", zap.Any("config", config),
 		zap.String("namespace", changefeedID.Namespace),
@@ -397,13 +397,14 @@ func kafkaClientID(role, captureAddr string,
 // AdjustConfig adjust the `Config` and `sarama.Config` by condition.
 func AdjustConfig(
 	admin kafka.ClusterAdminClient, config *Config, saramaConfig *sarama.Config, topic string,
+	changefeedID model.ChangeFeedID,
 ) error {
 	topics, err := admin.ListTopics()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = validateMinInsyncReplicas(admin, topics, topic, int(config.ReplicationFactor))
+	err = validateMinInsyncReplicas(admin, topics, topic, int(config.ReplicationFactor), changefeedID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -425,6 +426,8 @@ func AdjustConfig(
 		if topicMaxMessageBytes < config.MaxMessageBytes {
 			log.Warn("topic's `max.message.bytes` less than the `max-message-bytes`,"+
 				"use topic's `max.message.bytes` to initialize the Kafka producer",
+				zap.String("namespace", changefeedID.Namespace),
+				zap.String("changefeed", changefeedID.ID),
 				zap.Int("max.message.bytes", topicMaxMessageBytes),
 				zap.Int("max-message-bytes", config.MaxMessageBytes))
 			saramaConfig.Producer.MaxMessageBytes = topicMaxMessageBytes
@@ -436,7 +439,7 @@ func AdjustConfig(
 				zap.String("topic", topic), zap.Any("detail", info))
 		}
 
-		if err := config.setPartitionNum(info.NumPartitions); err != nil {
+		if err := config.setPartitionNum(info.NumPartitions, changefeedID); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -445,7 +448,9 @@ func AdjustConfig(
 
 	brokerMessageMaxBytesStr, err := getBrokerConfig(admin, kafka.BrokerMessageMaxBytesConfigName)
 	if err != nil {
-		log.Warn("TiCDC cannot find `message.max.bytes` from broker's configuration")
+		log.Warn("TiCDC cannot find `message.max.bytes` from broker's configuration",
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID))
 		return errors.Trace(err)
 	}
 	brokerMessageMaxBytes, err := strconv.Atoi(brokerMessageMaxBytesStr)
@@ -460,6 +465,8 @@ func AdjustConfig(
 	if brokerMessageMaxBytes < config.MaxMessageBytes {
 		log.Warn("broker's `message.max.bytes` less than the `max-message-bytes`,"+
 			"use broker's `message.max.bytes` to initialize the Kafka producer",
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID),
 			zap.Int("message.max.bytes", brokerMessageMaxBytes),
 			zap.Int("max-message-bytes", config.MaxMessageBytes))
 		saramaConfig.Producer.MaxMessageBytes = brokerMessageMaxBytes
@@ -469,7 +476,10 @@ func AdjustConfig(
 	if config.PartitionNum == 0 {
 		config.PartitionNum = defaultPartitionNum
 		log.Warn("partition-num is not set, use the default partition count",
-			zap.String("topic", topic), zap.Int32("partitions", config.PartitionNum))
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID),
+			zap.String("topic", topic),
+			zap.Int32("partitions", config.PartitionNum))
 	}
 	return nil
 }
@@ -477,6 +487,7 @@ func AdjustConfig(
 func validateMinInsyncReplicas(
 	admin kafka.ClusterAdminClient,
 	topics map[string]sarama.TopicDetail, topic string, replicationFactor int,
+	changefeedID model.ChangeFeedID,
 ) error {
 	minInsyncReplicasConfigGetter := func() (string, bool, error) {
 		info, exists := topics[topic]
@@ -519,7 +530,10 @@ func validateMinInsyncReplicas(
 	if replicationFactor < minInsyncReplicas {
 		msg := fmt.Sprintf("`replication-factor` cannot be smaller than the `%s` of %s",
 			kafka.MinInsyncReplicasConfigName, configFrom)
-		log.Error(msg, zap.Int("replication-factor", replicationFactor),
+		log.Error(msg,
+			zap.String("namespace", changefeedID.Namespace),
+			zap.String("changefeed", changefeedID.ID),
+			zap.Int("replication-factor", replicationFactor),
 			zap.Int("min.insync.replicas", minInsyncReplicas))
 		return cerror.ErrKafkaInvalidConfig.GenWithStack(
 			"TiCDC Kafka producer's `request.required.acks` defaults to -1, "+

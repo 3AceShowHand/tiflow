@@ -69,6 +69,7 @@ func newMqSink(
 	defaultTopic string,
 	replicaConfig *config.ReplicaConfig, encoderConfig *common.Config,
 	errCh chan error,
+	changefeedID model.ChangeFeedID,
 ) (*mqSink, error) {
 	encoderBuilder, err := builder.NewEventBatchEncoderBuilder(ctx, encoderConfig)
 	if err != nil {
@@ -81,7 +82,6 @@ func newMqSink(
 	}
 
 	captureAddr := contextutil.CaptureAddrFromCtx(ctx)
-	changefeedID := contextutil.ChangefeedIDFromCtx(ctx)
 	role := contextutil.RoleFromCtx(ctx)
 
 	encoder := encoderBuilder.Build()
@@ -372,9 +372,12 @@ func (k *mqSink) asyncFlushToPartitionZero(
 }
 
 // NewKafkaSaramaSink creates a new Kafka mqSink.
-func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
+func NewKafkaSaramaSink(
+	ctx context.Context,
+	sinkURI *url.URL,
 	replicaConfig *config.ReplicaConfig,
 	errCh chan error,
+	changefeedID model.ChangeFeedID,
 ) (*mqSink, error) {
 	topic := strings.TrimFunc(sinkURI.Path, func(r rune) bool {
 		return r == '/'
@@ -388,7 +391,7 @@ func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
 		return nil, cerror.WrapError(cerror.ErrKafkaInvalidConfig, err)
 	}
 
-	saramaConfig, err := kafka.NewSaramaConfig(ctx, baseConfig)
+	saramaConfig, err := kafka.NewSaramaConfig(ctx, baseConfig, changefeedID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -399,14 +402,14 @@ func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
 	}
 
 	// we must close adminClient when this func return cause by an error
-	// otherwise the adminClient will never be closed and lead to an goroutine leak
+	// otherwise the adminClient will never be closed and lead to goroutine leak
 	defer func() {
 		if err != nil {
 			adminClient.Close()
 		}
 	}()
 
-	if err := kafka.AdjustConfig(adminClient, baseConfig, saramaConfig, topic); err != nil {
+	if err := kafka.AdjustConfig(adminClient, baseConfig, saramaConfig, topic, changefeedID); err != nil {
 		return nil, cerror.WrapError(cerror.ErrKafkaNewSaramaProducer, err)
 	}
 
@@ -436,6 +439,7 @@ func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
 		client,
 		adminClient,
 		baseConfig.DeriveTopicConfig(),
+		changefeedID,
 	)
 	if err != nil {
 		return nil, cerror.WrapError(cerror.ErrKafkaNewSaramaProducer, err)
@@ -452,6 +456,7 @@ func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
 		baseConfig,
 		saramaConfig,
 		errCh,
+		changefeedID,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -465,6 +470,7 @@ func NewKafkaSaramaSink(ctx context.Context, sinkURI *url.URL,
 		replicaConfig,
 		encoderConfig,
 		errCh,
+		changefeedID,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
