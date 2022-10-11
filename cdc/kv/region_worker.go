@@ -477,25 +477,6 @@ func (w *regionWorker) onHandleExit(err error) {
 }
 
 func (w *regionWorker) eventHandler(ctx context.Context) error {
-	preprocess := func(event *regionStatefulEvent, ok bool) (
-		exitEventHandler bool,
-		skipEvent bool,
-	) {
-		// event == nil means the region worker should exit and re-establish
-		// all existing regions.
-		if !ok || event == nil {
-			log.Info("region worker closed by error",
-				zap.String("namespace", w.session.client.changefeed.Namespace),
-				zap.String("changefeed", w.session.client.changefeed.ID))
-			exitEventHandler = true
-			return
-		}
-		// event.state is nil when resolvedTsEvent is not nil
-		if event.state != nil && event.state.isStopped() {
-			skipEvent = true
-		}
-		return
-	}
 	pollEvents := func() (events []*regionStatefulEvent, ok bool, err error) {
 		select {
 		case <-ctx.Done():
@@ -565,15 +546,17 @@ func (w *regionWorker) eventHandler(ctx context.Context) error {
 			// throughput. Otherwise, we process event in local region worker to
 			// ensure low processing latency.
 			for _, event := range events {
-				exitEventHandler, skipEvent := preprocess(event, ok)
-				if exitEventHandler {
-					return cerror.ErrRegionWorkerExit.GenWithStackByArgs()
+				if !ok || event == nil {
+					log.Info("region worker closed by error",
+						zap.String("namespace", w.session.client.changefeed.Namespace),
+						zap.String("changefeed", w.session.client.changefeed.ID))
+					return cerror.ErrRegionWorkerExit.FastGenByArgs()
 				}
-				if !skipEvent {
-					err = w.processEvent(ctx, event)
-					if err != nil {
-						return err
-					}
+				if event.state != nil && event.state.isStopped() {
+					continue
+				}
+				if err := w.processEvent(ctx, event); err != nil {
+					return err
 				}
 			}
 		}
