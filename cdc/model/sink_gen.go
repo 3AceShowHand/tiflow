@@ -1795,22 +1795,10 @@ func (z *RowChangedEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "table":
-			if dc.IsNil() {
-				err = dc.ReadNil()
-				if err != nil {
-					err = msgp.WrapError(err, "Table")
-					return
-				}
-				z.Table = nil
-			} else {
-				if z.Table == nil {
-					z.Table = new(TableName)
-				}
-				err = z.Table.DecodeMsg(dc)
-				if err != nil {
-					err = msgp.WrapError(err, "Table")
-					return
-				}
+			err = z.Table.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "Table")
+				return
 			}
 		case "table-info-version":
 			z.TableInfoVersion, err = dc.ReadUint64()
@@ -1889,17 +1877,10 @@ func (z *RowChangedEvent) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	if z.Table == nil {
-		err = en.WriteNil()
-		if err != nil {
-			return
-		}
-	} else {
-		err = z.Table.EncodeMsg(en)
-		if err != nil {
-			err = msgp.WrapError(err, "Table")
-			return
-		}
+	err = z.Table.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Table")
+		return
 	}
 	// write "table-info-version"
 	err = en.Append(0xb2, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2d, 0x69, 0x6e, 0x66, 0x6f, 0x2d, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
@@ -1950,14 +1931,10 @@ func (z *RowChangedEvent) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendUint64(o, z.CommitTs)
 	// string "table"
 	o = append(o, 0xa5, 0x74, 0x61, 0x62, 0x6c, 0x65)
-	if z.Table == nil {
-		o = msgp.AppendNil(o)
-	} else {
-		o, err = z.Table.MarshalMsg(o)
-		if err != nil {
-			err = msgp.WrapError(err, "Table")
-			return
-		}
+	o, err = z.Table.MarshalMsg(o)
+	if err != nil {
+		err = msgp.WrapError(err, "Table")
+		return
 	}
 	// string "table-info-version"
 	o = append(o, 0xb2, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x2d, 0x69, 0x6e, 0x66, 0x6f, 0x2d, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
@@ -2005,21 +1982,10 @@ func (z *RowChangedEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "table":
-			if msgp.IsNil(bts) {
-				bts, err = msgp.ReadNilBytes(bts)
-				if err != nil {
-					return
-				}
-				z.Table = nil
-			} else {
-				if z.Table == nil {
-					z.Table = new(TableName)
-				}
-				bts, err = z.Table.UnmarshalMsg(bts)
-				if err != nil {
-					err = msgp.WrapError(err, "Table")
-					return
-				}
+			bts, err = z.Table.UnmarshalMsg(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Table")
+				return
 			}
 		case "table-info-version":
 			z.TableInfoVersion, bts, err = msgp.ReadUint64Bytes(bts)
@@ -2073,13 +2039,7 @@ func (z *RowChangedEvent) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *RowChangedEvent) Msgsize() (s int) {
-	s = 1 + 9 + msgp.Uint64Size + 10 + msgp.Uint64Size + 6
-	if z.Table == nil {
-		s += msgp.NilSize
-	} else {
-		s += z.Table.Msgsize()
-	}
-	s += 19 + msgp.Uint64Size + 14 + msgp.ArrayHeaderSize
+	s = 1 + 9 + msgp.Uint64Size + 10 + msgp.Uint64Size + 6 + z.Table.Msgsize() + 19 + msgp.Uint64Size + 14 + msgp.ArrayHeaderSize
 	for za0001 := range z.IndexColumns {
 		s += msgp.ArrayHeaderSize + (len(z.IndexColumns[za0001]) * (msgp.IntSize))
 	}

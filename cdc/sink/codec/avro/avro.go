@@ -160,7 +160,7 @@ func (a *BatchEncoder) avroEncode(
 	isKey bool,
 ) (*avroEncodeResult, error) {
 	var (
-		cols                []*model.Column
+		cols                []model.Column
 		colInfos            []rowcodec.ColInfo
 		enableTiDBExtension bool
 		schemaManager       *schemaManager
@@ -285,7 +285,7 @@ var type2TiDBType = map[byte]string{
 	mysql.TypeYear:       "YEAR",
 }
 
-func getTiDBTypeFromColumn(col *model.Column) string {
+func getTiDBTypeFromColumn(col model.Column) string {
 	tt := type2TiDBType[col.Type]
 	if col.Flag.IsUnsigned() && (tt == "INT" || tt == "BIGINT") {
 		return tt + " UNSIGNED"
@@ -349,7 +349,7 @@ func escapeEnumAndSetOptions(option string) string {
 	return option
 }
 
-func getAvroNamespace(namespace string, tableName *model.TableName) string {
+func getAvroNamespace(namespace string, tableName model.TableName) string {
 	return sanitizeName(namespace) + "." + sanitizeName(tableName.Schema)
 }
 
@@ -369,7 +369,7 @@ type avroLogicalTypeSchema struct {
 func rowToAvroSchema(
 	namespace string,
 	name string,
-	columnInfo []*model.Column,
+	columnInfo []model.Column,
 	colInfos []rowcodec.ColInfo,
 	enableTiDBExtension bool,
 	decimalHandlingMode string,
@@ -395,10 +395,10 @@ func rowToAvroSchema(
 		field := make(map[string]interface{})
 		field["name"] = sanitizeName(col.Name)
 
-		copy := *col
+		copy := col
 		copy.Value = copy.Default
 		defaultValue, _, err := columnToAvroData(
-			&copy,
+			copy,
 			colInfos[i].Ft,
 			decimalHandlingMode,
 			bigintUnsignedHandlingMode,
@@ -462,7 +462,7 @@ func rowToAvroSchema(
 }
 
 func rowToAvroData(
-	cols []*model.Column,
+	cols []model.Column,
 	colInfos []rowcodec.ColInfo,
 	commitTs uint64,
 	operation string,
@@ -472,9 +472,6 @@ func rowToAvroData(
 ) (map[string]interface{}, error) {
 	ret := make(map[string]interface{}, len(cols))
 	for i, col := range cols {
-		if col == nil {
-			continue
-		}
 		data, str, err := columnToAvroData(
 			col,
 			colInfos[i].Ft,
@@ -504,7 +501,7 @@ func rowToAvroData(
 }
 
 func columnToAvroSchema(
-	col *model.Column,
+	col model.Column,
 	ft *types.FieldType,
 	decimalHandlingMode string,
 	bigintUnsignedHandlingMode string,
@@ -636,7 +633,7 @@ func columnToAvroSchema(
 }
 
 func columnToAvroData(
-	col *model.Column,
+	col model.Column,
 	ft *types.FieldType,
 	decimalHandlingMode string,
 	bigintUnsignedHandlingMode string,

@@ -119,7 +119,7 @@ func (b *canalEntryBuilder) formatValue(value interface{}, javaType internal.Jav
 
 // build the Column in the canal RowData
 // see https://github.com/alibaba/canal/blob/b54bea5e3337c9597c427a53071d214ff04628d1/parse/src/main/java/com/alibaba/otter/canal/parse/inbound/mysql/dbsync/LogEventConvert.java#L756-L872
-func (b *canalEntryBuilder) buildColumn(c *model.Column, colName string, updated bool) (*canal.Column, error) {
+func (b *canalEntryBuilder) buildColumn(c model.Column, colName string, updated bool) (*canal.Column, error) {
 	mysqlType := getMySQLType(c)
 	javaType, err := getJavaSQLType(c, mysqlType)
 	if err != nil {
@@ -147,9 +147,6 @@ func (b *canalEntryBuilder) buildColumn(c *model.Column, colName string, updated
 func (b *canalEntryBuilder) buildRowData(e *model.RowChangedEvent) (*canal.RowData, error) {
 	var columns []*canal.Column
 	for _, column := range e.Columns {
-		if column == nil {
-			continue
-		}
 		c, err := b.buildColumn(column, column.Name, !e.IsDelete())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -158,9 +155,6 @@ func (b *canalEntryBuilder) buildRowData(e *model.RowChangedEvent) (*canal.RowDa
 	}
 	var preColumns []*canal.Column
 	for _, column := range e.PreColumns {
-		if column == nil {
-			continue
-		}
 		c, err := b.buildColumn(column, column.Name, !e.IsDelete())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -294,7 +288,7 @@ func isCanalDDL(t canal.EventType) bool {
 	return false
 }
 
-func getJavaSQLType(c *model.Column, mysqlType string) (result internal.JavaSQLType, err error) {
+func getJavaSQLType(c model.Column, mysqlType string) (result internal.JavaSQLType, err error) {
 	javaType := internal.MySQLType2JavaType(c.Type, c.Flag.IsBinary())
 
 	switch javaType {
@@ -383,7 +377,7 @@ func trimUnsignedFromMySQLType(mysqlType string) string {
 	return strings.TrimSuffix(mysqlType, " unsigned")
 }
 
-func getMySQLType(c *model.Column) string {
+func getMySQLType(c model.Column) string {
 	mysqlType := types.TypeStr(c.Type)
 	// make `mysqlType` representation keep the same as the canal official implementation
 	mysqlType = withUnsigned4MySQLType(mysqlType, c.Flag.IsUnsigned())

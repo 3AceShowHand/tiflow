@@ -274,8 +274,8 @@ func parseJob(v []byte, startTs, CRTs uint64) (*timodel.Job, error) {
 	return job, nil
 }
 
-func datum2Column(tableInfo *model.TableInfo, datums map[int64]types.Datum, fillWithDefaultValue bool) ([]*model.Column, []types.Datum, error) {
-	cols := make([]*model.Column, len(tableInfo.RowColumnsOffset))
+func datum2Column(tableInfo *model.TableInfo, datums map[int64]types.Datum, fillWithDefaultValue bool) ([]model.Column, []types.Datum, error) {
+	cols := make([]model.Column, len(tableInfo.RowColumnsOffset))
 	rawCols := make([]types.Datum, len(tableInfo.RowColumnsOffset))
 	for _, colInfo := range tableInfo.Columns {
 		colSize := 0
@@ -309,7 +309,7 @@ func datum2Column(tableInfo *model.TableInfo, datums map[int64]types.Datum, fill
 		defaultValue := getDDLDefaultDefinition(colInfo)
 		colSize += size
 		rawCols[tableInfo.RowColumnsOffset[colInfo.ID]] = colDatums
-		cols[tableInfo.RowColumnsOffset[colInfo.ID]] = &model.Column{
+		cols[tableInfo.RowColumnsOffset[colInfo.ID]] = model.Column{
 			Name:    colName,
 			Type:    colInfo.GetType(),
 			Charset: colInfo.GetCharset(),
@@ -326,7 +326,7 @@ func datum2Column(tableInfo *model.TableInfo, datums map[int64]types.Datum, fill
 func (m *mounterImpl) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, dataSize int64) (*model.RowChangedEvent, model.RowChangedDatums, error) {
 	var err error
 	// Decode previous columns.
-	var preCols []*model.Column
+	var preCols []model.Column
 	var preRawCols []types.Datum
 	var rawRow model.RowChangedDatums
 	// Since we now always use old value internally,
@@ -347,14 +347,14 @@ func (m *mounterImpl) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntr
 		if row.Delete && !m.enableOldValue {
 			for i := range preCols {
 				col := preCols[i]
-				if col != nil && !col.Flag.IsHandleKey() {
-					preCols[i] = nil
+				if !col.Flag.IsHandleKey() {
+					continue
 				}
 			}
 		}
 	}
 
-	var cols []*model.Column
+	var cols []model.Column
 	var rawCols []types.Datum
 	if row.RowExist {
 		cols, rawCols, err = datum2Column(tableInfo, row.Row, true)
@@ -387,7 +387,7 @@ func (m *mounterImpl) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntr
 		CommitTs:         row.CRTs,
 		RowID:            intRowID,
 		TableInfoVersion: tableInfoVersion,
-		Table: &model.TableName{
+		Table: model.TableName{
 			Schema:      schemaName,
 			Table:       tableName,
 			TableID:     row.PhysicalTableID,

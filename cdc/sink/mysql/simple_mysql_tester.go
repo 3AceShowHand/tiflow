@@ -221,7 +221,7 @@ func (s *simpleMySQLSink) RemoveTable(ctx context.Context, tableID model.TableID
 	return nil
 }
 
-func prepareCheckSQL(quoteTable string, cols []*model.Column) (string, []interface{}) {
+func prepareCheckSQL(quoteTable string, cols []model.Column) (string, []interface{}) {
 	var builder strings.Builder
 	builder.WriteString("SELECT count(1) FROM " + quoteTable + " WHERE ")
 

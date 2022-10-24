@@ -158,7 +158,7 @@ func (c *canalJSONMessageWithTiDBExtension) getCommitTs() uint64 {
 func canalJSONMessage2RowChange(msg canalJSONMessageInterface) (*model.RowChangedEvent, error) {
 	result := new(model.RowChangedEvent)
 	result.CommitTs = msg.getCommitTs()
-	result.Table = &model.TableName{
+	result.Table = model.TableName{
 		Schema: *msg.getSchema(),
 		Table:  *msg.getTable(),
 	}
@@ -198,8 +198,8 @@ func canalJSONMessage2RowChange(msg canalJSONMessageInterface) (*model.RowChange
 	return result, nil
 }
 
-func canalJSONColumnMap2RowChangeColumns(cols map[string]interface{}, mysqlType map[string]string, javaSQLType map[string]int32) ([]*model.Column, error) {
-	result := make([]*model.Column, 0, len(cols))
+func canalJSONColumnMap2RowChangeColumns(cols map[string]interface{}, mysqlType map[string]string, javaSQLType map[string]int32) ([]model.Column, error) {
+	result := make([]model.Column, 0, len(cols))
 	for name, value := range cols {
 		javaType, ok := javaSQLType[name]
 		if !ok {
@@ -216,7 +216,7 @@ func canalJSONColumnMap2RowChangeColumns(cols map[string]interface{}, mysqlType 
 		mysqlTypeStr = trimUnsignedFromMySQLType(mysqlTypeStr)
 		mysqlType := types.StrToType(mysqlTypeStr)
 		col := internal.NewColumn(value, mysqlType).ToCanalJSONFormatColumn(name, internal.JavaSQLType(javaType))
-		result = append(result, col)
+		result = append(result, *col)
 	}
 	if len(result) == 0 {
 		return nil, nil

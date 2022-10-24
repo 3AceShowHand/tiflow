@@ -43,7 +43,7 @@ func NewColumn(value any, tp byte) *Column {
 }
 
 // FromRowChangeColumn converts from a row changed column to a codec column.
-func (c *Column) FromRowChangeColumn(col *model.Column) {
+func (c *Column) FromRowChangeColumn(col model.Column) {
 	c.Type = col.Type
 	c.Flag = col.Flag
 	if c.Flag.IsHandleKey() {

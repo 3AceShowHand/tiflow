@@ -275,7 +275,7 @@ func shouldSplitUpdateEvent(updateEvent *model.PolymorphicEvent) bool {
 	for i := range updateEvent.Row.Columns {
 		col := updateEvent.Row.Columns[i]
 		preCol := updateEvent.Row.PreColumns[i]
-		if col != nil && col.Flag.IsHandleKey() && preCol != nil && preCol.Flag.IsHandleKey() {
+		if col.Flag.IsHandleKey() && preCol.Flag.IsHandleKey() {
 			colValueString := model.ColumnValueString(col.Value)
 			preColValueString := model.ColumnValueString(preCol.Value)
 			// If one handle key columns is updated, we need to split the event row.
@@ -306,9 +306,7 @@ func splitUpdateEvent(updateEvent *model.PolymorphicEvent) (*model.PolymorphicEv
 	deleteEvent.Row.Columns = nil
 	for i := range deleteEvent.Row.PreColumns {
 		// NOTICE: Only the handle key pre column is retained in the delete event.
-		if deleteEvent.Row.PreColumns[i] != nil &&
-			!deleteEvent.Row.PreColumns[i].Flag.IsHandleKey() {
-			deleteEvent.Row.PreColumns[i] = nil
+		if !deleteEvent.Row.PreColumns[i].Flag.IsHandleKey() {
 		}
 	}
 	// Align with the old format if old value disabled.

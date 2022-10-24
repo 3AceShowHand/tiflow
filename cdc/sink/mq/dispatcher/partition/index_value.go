@@ -49,9 +49,6 @@ func (r *IndexValueDispatcher) DispatchRowChangedEvent(row *model.RowChangedEven
 		dispatchCols = row.PreColumns
 	}
 	for _, col := range dispatchCols {
-		if col == nil {
-			continue
-		}
 		if col.Flag.IsHandleKey() {
 			r.hasher.Write([]byte(col.Name), []byte(model.ColumnValueString(col.Value)))
 		}

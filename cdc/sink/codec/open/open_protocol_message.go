@@ -104,7 +104,7 @@ func msgToRowChange(key *internal.MessageKey, value *messageRow) *model.RowChang
 	// TODO: we lost the startTs from kafka message
 	// startTs-based txn filter is out of work
 	e.CommitTs = key.Ts
-	e.Table = &model.TableName{
+	e.Table = model.TableName{
 		Schema: key.Schema,
 		Table:  key.Table,
 	}
@@ -123,12 +123,9 @@ func msgToRowChange(key *internal.MessageKey, value *messageRow) *model.RowChang
 	return e
 }
 
-func rowChangeColumns2CodecColumns(cols []*model.Column) map[string]internal.Column {
+func rowChangeColumns2CodecColumns(cols []model.Column) map[string]internal.Column {
 	jsonCols := make(map[string]internal.Column, len(cols))
 	for _, col := range cols {
-		if col == nil {
-			continue
-		}
 		c := internal.Column{}
 		c.FromRowChangeColumn(col)
 		jsonCols[col.Name] = c
@@ -139,11 +136,11 @@ func rowChangeColumns2CodecColumns(cols []*model.Column) map[string]internal.Col
 	return jsonCols
 }
 
-func codecColumns2RowChangeColumns(cols map[string]internal.Column) []*model.Column {
-	sinkCols := make([]*model.Column, 0, len(cols))
+func codecColumns2RowChangeColumns(cols map[string]internal.Column) []model.Column {
+	sinkCols := make([]model.Column, 0, len(cols))
 	for name, col := range cols {
 		c := col.ToRowChangeColumn(name)
-		sinkCols = append(sinkCols, c)
+		sinkCols = append(sinkCols, *c)
 	}
 	if len(sinkCols) == 0 {
 		return nil

@@ -24,14 +24,14 @@ import (
 // prepareUpdate builds a parametrics UPDATE statement as following
 // sql: `UPDATE `test`.`t` SET {} = ?, {} = ? WHERE {} = ?, {} = {}`
 // `WHERE` conditions come from `preCols` and SET clause targets come from `cols`.
-func prepareUpdate(quoteTable string, preCols, cols []*model.Column, forceReplicate bool) (string, []interface{}) {
+func prepareUpdate(quoteTable string, preCols, cols []model.Column, forceReplicate bool) (string, []interface{}) {
 	var builder strings.Builder
 	builder.WriteString("UPDATE " + quoteTable + " SET ")
 
 	columnNames := make([]string, 0, len(cols))
 	args := make([]interface{}, 0, len(cols)+len(preCols))
 	for _, col := range cols {
-		if col == nil || col.Flag.IsGeneratedColumn() {
+		if col.Flag.IsGeneratedColumn() {
 			continue
 		}
 		columnNames = append(columnNames, col.Name)
@@ -73,7 +73,7 @@ func prepareUpdate(quoteTable string, preCols, cols []*model.Column, forceReplic
 // sql: `REPLACE INTO `test`.`t` VALUES (?,?,?)`
 func prepareReplace(
 	quoteTable string,
-	cols []*model.Column,
+	cols []model.Column,
 	appendPlaceHolder bool,
 	translateToInsert bool,
 ) (string, []interface{}) {
@@ -81,7 +81,7 @@ func prepareReplace(
 	columnNames := make([]string, 0, len(cols))
 	args := make([]interface{}, 0, len(cols))
 	for _, col := range cols {
-		if col == nil || col.Flag.IsGeneratedColumn() {
+		if col.Flag.IsGeneratedColumn() {
 			continue
 		}
 		columnNames = append(columnNames, col.Name)
@@ -108,7 +108,7 @@ func prepareReplace(
 // representation. Because if we use the byte array respresentation, the go-sql-driver
 // will automatically set `_binary` charset for that column, which is not expected.
 // See https://github.com/go-sql-driver/mysql/blob/ce134bfc/connection.go#L267
-func appendQueryArgs(args []interface{}, col *model.Column) []interface{} {
+func appendQueryArgs(args []interface{}, col model.Column) []interface{} {
 	if col.Charset != "" && col.Charset != charset.CharsetBin {
 		colValBytes, ok := col.Value.([]byte)
 		if ok {
@@ -163,7 +163,7 @@ func reduceReplace(replaces map[string][][]interface{}, batchSize int) ([]string
 
 // prepareDelete builds a parametric DELETE statement as following
 // sql: `DELETE FROM `test`.`t` WHERE x = ? AND y >= ?`
-func prepareDelete(quoteTable string, cols []*model.Column, forceReplicate bool) (string, []interface{}) {
+func prepareDelete(quoteTable string, cols []model.Column, forceReplicate bool) (string, []interface{}) {
 	var builder strings.Builder
 	builder.WriteString("DELETE FROM " + quoteTable + " WHERE ")
 
@@ -190,10 +190,10 @@ func prepareDelete(quoteTable string, cols []*model.Column, forceReplicate bool)
 
 // whereSlice builds a parametric WHERE clause as following
 // sql: `WHERE {} = ? AND {} > ?`
-func whereSlice(cols []*model.Column, forceReplicate bool) (colNames []string, args []interface{}) {
+func whereSlice(cols []model.Column, forceReplicate bool) (colNames []string, args []interface{}) {
 	// Try to use unique key values when available
 	for _, col := range cols {
-		if col == nil || !col.Flag.IsHandleKey() {
+		if !col.Flag.IsHandleKey() {
 			continue
 		}
 		colNames = append(colNames, col.Name)

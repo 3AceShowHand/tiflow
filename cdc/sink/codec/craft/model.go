@@ -304,8 +304,8 @@ func (g *columnGroup) encode(bits []byte, dict *termDictionary) []byte {
 }
 
 // ToModel converts column group into model
-func (g *columnGroup) ToModel() ([]*model.Column, error) {
-	columns := make([]*model.Column, len(g.names))
+func (g *columnGroup) ToModel() ([]model.Column, error) {
+	columns := make([]model.Column, len(g.names))
 	for i, name := range g.names {
 		ty := byte(g.types[i])
 		flag := model.ColumnFlagType(g.flags[i])
@@ -313,7 +313,7 @@ func (g *columnGroup) ToModel() ([]*model.Column, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		columns[i] = &model.Column{
+		columns[i] = model.Column{
 			Name:  name,
 			Type:  ty,
 			Flag:  flag,
@@ -366,7 +366,7 @@ func decodeColumnGroup(bits []byte, allocator *SliceAllocator, dict *termDiction
 	}, nil
 }
 
-func newColumnGroup(allocator *SliceAllocator, ty byte, columns []*model.Column) (int, *columnGroup) {
+func newColumnGroup(allocator *SliceAllocator, ty byte, columns []model.Column) (int, *columnGroup) {
 	l := len(columns)
 	if l == 0 {
 		return 0, nil
@@ -378,9 +378,6 @@ func newColumnGroup(allocator *SliceAllocator, ty byte, columns []*model.Column)
 	estimatedSize := 0
 	idx := 0
 	for _, col := range columns {
-		if col == nil {
-			continue
-		}
 		names[idx] = col.Name
 		types[idx] = uint64(col.Type)
 		flags[idx] = uint64(col.Flag)

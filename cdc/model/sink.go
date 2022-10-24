@@ -254,14 +254,14 @@ type RowChangedEvent struct {
 
 	RowID int64 `json:"row-id" msg:"-"` // Deprecated. It is empty when the RowID comes from clustered index table.
 
-	Table    *TableName         `json:"table" msg:"table"`
+	Table    TableName          `json:"table" msg:"table"`
 	ColInfos []rowcodec.ColInfo `json:"column-infos" msg:"-"`
 
 	TableInfoVersion uint64 `json:"table-info-version,omitempty" msg:"table-info-version"`
 
-	Columns      []*Column `json:"columns" msg:"-"`
-	PreColumns   []*Column `json:"pre-columns" msg:"-"`
-	IndexColumns [][]int   `json:"-" msg:"index-columns"`
+	Columns      []Column `json:"columns" msg:"-"`
+	PreColumns   []Column `json:"pre-columns" msg:"-"`
+	IndexColumns [][]int  `json:"-" msg:"index-columns"`
 
 	// ApproximateDataSize is the approximate size of protobuf binary
 	// representation of this event.
@@ -297,7 +297,7 @@ func (r *RowChangedEvent) IsUpdate() bool {
 func (r *RowChangedEvent) PrimaryKeyColumnNames() []string {
 	var result []string
 
-	var cols []*Column
+	var cols []Column
 	if r.IsDelete() {
 		cols = r.PreColumns
 	} else {
@@ -306,7 +306,7 @@ func (r *RowChangedEvent) PrimaryKeyColumnNames() []string {
 
 	result = make([]string, 0)
 	for _, col := range cols {
-		if col != nil && col.Flag.IsPrimaryKey() {
+		if col.Flag.IsPrimaryKey() {
 			result = append(result, col.Name)
 		}
 	}
@@ -314,10 +314,10 @@ func (r *RowChangedEvent) PrimaryKeyColumnNames() []string {
 }
 
 // PrimaryKeyColumns returns the column(s) corresponding to the handle key(s)
-func (r *RowChangedEvent) PrimaryKeyColumns() []*Column {
-	pkeyCols := make([]*Column, 0)
+func (r *RowChangedEvent) PrimaryKeyColumns() []Column {
+	pkeyCols := make([]Column, 0)
 
-	var cols []*Column
+	var cols []Column
 	if r.IsDelete() {
 		cols = r.PreColumns
 	} else {
@@ -325,7 +325,7 @@ func (r *RowChangedEvent) PrimaryKeyColumns() []*Column {
 	}
 
 	for _, col := range cols {
-		if col != nil && (col.Flag.IsPrimaryKey()) {
+		if col.Flag.IsPrimaryKey() {
 			pkeyCols = append(pkeyCols, col)
 		}
 	}
@@ -335,10 +335,10 @@ func (r *RowChangedEvent) PrimaryKeyColumns() []*Column {
 }
 
 // HandleKeyColumns returns the column(s) corresponding to the handle key(s)
-func (r *RowChangedEvent) HandleKeyColumns() []*Column {
-	pkeyCols := make([]*Column, 0)
+func (r *RowChangedEvent) HandleKeyColumns() []Column {
+	pkeyCols := make([]Column, 0)
 
-	var cols []*Column
+	var cols []Column
 	if r.IsDelete() {
 		cols = r.PreColumns
 	} else {
@@ -346,7 +346,7 @@ func (r *RowChangedEvent) HandleKeyColumns() []*Column {
 	}
 
 	for _, col := range cols {
-		if col != nil && col.Flag.IsHandleKey() {
+		if col.Flag.IsHandleKey() {
 			pkeyCols = append(pkeyCols, col)
 		}
 	}
@@ -356,11 +356,11 @@ func (r *RowChangedEvent) HandleKeyColumns() []*Column {
 }
 
 // HandleKeyColInfos returns the column(s) and colInfo(s) corresponding to the handle key(s)
-func (r *RowChangedEvent) HandleKeyColInfos() ([]*Column, []rowcodec.ColInfo) {
-	pkeyCols := make([]*Column, 0)
+func (r *RowChangedEvent) HandleKeyColInfos() ([]Column, []rowcodec.ColInfo) {
+	pkeyCols := make([]Column, 0)
 	pkeyColInfos := make([]rowcodec.ColInfo, 0)
 
-	var cols []*Column
+	var cols []Column
 	if r.IsDelete() {
 		cols = r.PreColumns
 	} else {
@@ -368,7 +368,7 @@ func (r *RowChangedEvent) HandleKeyColInfos() ([]*Column, []rowcodec.ColInfo) {
 	}
 
 	for i, col := range cols {
-		if col != nil && col.Flag.IsHandleKey() {
+		if col.Flag.IsHandleKey() {
 			pkeyCols = append(pkeyCols, col)
 			pkeyColInfos = append(pkeyColInfos, r.ColInfos[i])
 		}
@@ -397,7 +397,7 @@ func (r *RowChangedEvent) WithHandlePrimaryFlag(colNames map[string]struct{}) {
 // ApproximateBytes returns approximate bytes in memory consumed by the event.
 func (r *RowChangedEvent) ApproximateBytes() int {
 	const sizeOfRowEvent = int(unsafe.Sizeof(*r))
-	const sizeOfTable = int(unsafe.Sizeof(*r.Table))
+	const sizeOfTable = int(unsafe.Sizeof(r.Table))
 	const sizeOfIndexes = int(unsafe.Sizeof(r.IndexColumns[0]))
 	const sizeOfInt = int(unsafe.Sizeof(int(0)))
 
@@ -409,9 +409,7 @@ func (r *RowChangedEvent) ApproximateBytes() int {
 	}
 	// Size of pre cols
 	for i := range r.PreColumns {
-		if r.PreColumns[i] != nil {
-			size += r.PreColumns[i].ApproximateBytes
-		}
+		size += r.PreColumns[i].ApproximateBytes
 	}
 	// Size of index columns
 	for i := range r.IndexColumns {
@@ -560,7 +558,7 @@ func (d *DDLEvent) FromRenameTablesJob(job *model.Job,
 //msgp:ignore SingleTableTxn
 type SingleTableTxn struct {
 	// data fields of SingleTableTxn
-	Table    *TableName
+	Table    TableName
 	StartTs  uint64
 	CommitTs uint64
 	Rows     []*RowChangedEvent

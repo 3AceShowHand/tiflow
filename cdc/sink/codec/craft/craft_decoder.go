@@ -77,7 +77,7 @@ func (b *batchDecoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		}
 	}
 	ev.CommitTs = b.headers.GetTs(b.index)
-	ev.Table = &model.TableName{
+	ev.Table = model.TableName{
 		Schema: b.headers.GetSchema(b.index),
 		Table:  b.headers.GetTable(b.index),
 	}
