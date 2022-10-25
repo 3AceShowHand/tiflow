@@ -15,6 +15,7 @@ package canal
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 
 	timodel "github.com/pingcap/tidb/parser/model"
@@ -42,6 +43,7 @@ type canalJSONMessageInterface interface {
 	messageType() model.MessageType
 	eventType() canal.EventType
 	pkNameSet() map[string]struct{}
+	toBytes() []byte
 }
 
 // JSONMessage adapted from https://github.com/alibaba/canal/blob/b54bea5e3337c9597c427a53071d214ff04628d1/protocol/src/main/java/com/alibaba/otter/canal/protocol/FlatMessage.java#L1
@@ -68,6 +70,14 @@ type JSONMessage struct {
 	Old  []map[string]interface{} `json:"old"`
 	// Used internally by canalJSONBatchEncoder
 	tikvTs uint64
+}
+
+func (c *JSONMessage) toBytes() []byte {
+	var result []byte
+	result = strconv.AppendInt(result, c.ID, 10)
+	result = append(result, c.Table...)
+	result = append(result, c.Schema...)
+	return result
 }
 
 func (c *JSONMessage) getTikvTs() uint64 {

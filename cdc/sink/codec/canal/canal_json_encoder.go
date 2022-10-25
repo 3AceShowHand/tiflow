@@ -219,11 +219,13 @@ func (c *JSONBatchEncoder) AppendRowChangedEvent(
 		return errors.Trace(err)
 	}
 
-	value, err := json.Marshal(c.messageHolder)
-	if err != nil {
-		log.Panic("JSONBatchEncoder", zap.Error(err))
-		return nil
-	}
+	//value, err := json.Marshal(c.messageHolder)
+	//if err != nil {
+	//	log.Panic("JSONBatchEncoder", zap.Error(err))
+	//	return nil
+	//}
+
+	value := c.messageHolder.toBytes()
 	m := common.NewMsg(config.ProtocolCanalJSON, nil, value, e.CommitTs,
 		model.MessageTypeRow, c.messageHolder.getSchema(), c.messageHolder.getTable())
 	m.IncRowsCount()
