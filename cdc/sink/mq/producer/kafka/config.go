@@ -384,6 +384,7 @@ func NewSaramaConfig(ctx context.Context, c *Config) (*sarama.Config, error) {
 	config.Producer.Flush.Messages = 0
 	config.Producer.Flush.Frequency = time.Duration(0)
 
+	config.Net.MaxOpenRequests = 10
 	config.Net.DialTimeout = c.DialTimeout
 	config.Net.WriteTimeout = c.WriteTimeout
 	config.Net.ReadTimeout = c.ReadTimeout
