@@ -225,7 +225,8 @@ func (c *JSONBatchEncoder) AppendRowChangedEvent(
 	//	return nil
 	//}
 
-	value := c.messageHolder.toBytes()
+	//value := c.messageHolder.toBytes()
+	var value []byte
 	m := common.NewMsg(config.ProtocolCanalJSON, nil, value, e.CommitTs,
 		model.MessageTypeRow, c.messageHolder.getSchema(), c.messageHolder.getTable())
 	m.IncRowsCount()
