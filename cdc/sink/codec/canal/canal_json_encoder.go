@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/codec"
@@ -214,9 +215,9 @@ func (c *JSONBatchEncoder) AppendRowChangedEvent(
 	e *model.RowChangedEvent,
 	callback func(),
 ) error {
-	//if err := c.newJSONMessageForDML(e); err != nil {
-	//	return errors.Trace(err)
-	//}
+	if err := c.newJSONMessageForDML(e); err != nil {
+		return errors.Trace(err)
+	}
 
 	//value, err := json.Marshal(c.messageHolder)
 	//if err != nil {
@@ -224,8 +225,7 @@ func (c *JSONBatchEncoder) AppendRowChangedEvent(
 	//	return nil
 	//}
 
-	//value := c.messageHolder.toBytes()
-	var value []byte
+	value := c.messageHolder.toBytes()
 	m := common.NewMsg(config.ProtocolCanalJSON, nil, value, e.CommitTs,
 		model.MessageTypeRow, c.messageHolder.getSchema(), c.messageHolder.getTable())
 	m.IncRowsCount()
