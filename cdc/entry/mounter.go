@@ -113,6 +113,9 @@ func (m *mounterImpl) DecodeEvent(ctx context.Context, pEvent *model.Polymorphic
 	//	log.Debug("message's row changed event is nil, it should be ignored", zap.Uint64("startTs", pEvent.StartTs))
 	//	return true, nil
 	//}
+	columns := make([]*model.Column, 1)
+	columns[0] = new(model.Column)
+
 	row := &model.RowChangedEvent{
 		StartTs:  pEvent.StartTs,
 		CommitTs: pEvent.CRTs,
@@ -122,6 +125,8 @@ func (m *mounterImpl) DecodeEvent(ctx context.Context, pEvent *model.Polymorphic
 			//TableID:     row.PhysicalTableID,
 			//IsPartition: tableInfo.GetPartitionInfo() != nil,
 		},
+		Columns:    columns,
+		PreColumns: columns,
 		//ColInfos:            colInfos,
 		//Columns:             cols,
 		//PreColumns:          preCols,
