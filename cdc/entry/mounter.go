@@ -105,13 +105,28 @@ func (m *mounterImpl) DecodeEvent(ctx context.Context, pEvent *model.Polymorphic
 	if pEvent.IsResolved() {
 		return true, nil
 	}
-	row, err := m.unmarshalAndMountRowChanged(ctx, pEvent.RawKV)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if row == nil {
-		log.Debug("message's row changed event is nil, it should be ignored", zap.Uint64("startTs", pEvent.StartTs))
-		return true, nil
+	//row, err := m.unmarshalAndMountRowChanged(ctx, pEvent.RawKV)
+	//if err != nil {
+	//	return false, errors.Trace(err)
+	//}
+	//if row == nil {
+	//	log.Debug("message's row changed event is nil, it should be ignored", zap.Uint64("startTs", pEvent.StartTs))
+	//	return true, nil
+	//}
+	row := &model.RowChangedEvent{
+		StartTs:  pEvent.StartTs,
+		CommitTs: pEvent.CRTs,
+		Table:    &model.TableName{
+			//Schema:      schemaName,
+			//Table:       tableName,
+			//TableID:     row.PhysicalTableID,
+			//IsPartition: tableInfo.GetPartitionInfo() != nil,
+		},
+		//ColInfos:            colInfos,
+		//Columns:             cols,
+		//PreColumns:          preCols,
+		//IndexColumns:        tableInfo.IndexColumnsOffset,
+		ApproximateDataSize: pEvent.RawKV.ApproximateDataSize(),
 	}
 
 	pEvent.Row = row
