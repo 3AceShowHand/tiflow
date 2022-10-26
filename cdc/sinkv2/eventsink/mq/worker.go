@@ -140,10 +140,9 @@ func (w *worker) nonBatchEncodeRun(ctx context.Context) error {
 			w.statistics.ObserveRows(event.rowEvent.Event)
 			for _, message := range w.encoder.Build() {
 				err := w.statistics.RecordBatchExecution(func() (int, error) {
-					//err := w.producer.AsyncSendMessage(ctx, event.key.Topic, event.key.Partition, message)
-					//if err != nil {
-					//	return 0, err
-					//}
+					if message.Callback != nil {
+						message.Callback()
+					}
 					return message.GetRowsCount(), nil
 				})
 				if err != nil {
