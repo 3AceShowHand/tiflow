@@ -27,6 +27,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-mysql-org/go-mysql v1.6.1-0.20220718092400-c855c26b37bd
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/goccy/go-json v0.9.11
 	github.com/gogo/gateway v1.1.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
