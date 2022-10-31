@@ -640,6 +640,8 @@ func (c *changefeed) cleanupMetrics() {
 
 	changefeedBarrierTsGauge.DeleteLabelValues(c.id.Namespace, c.id.ID)
 	c.metricsChangefeedBarrierTsGauge = nil
+
+	changefeedStatusGauge.DeleteLabelValues(c.id.Namespace, c.id.ID)
 }
 
 // redoManagerCleanup cleanups redo logs if changefeed is removed and redo log is enabled
