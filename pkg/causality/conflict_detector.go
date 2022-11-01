@@ -102,11 +102,11 @@ func (d *ConflictDetector[Worker, Txn]) runBackgroundTasks() {
 			return
 		case <-d.notifiedNodes.C:
 			for {
-				notifiyCallback, ok := d.notifiedNodes.Pop()
+				notifyCallback, ok := d.notifiedNodes.Pop()
 				if !ok {
 					break
 				}
-				notifiyCallback()
+				notifyCallback()
 			}
 		case <-d.garbageNodes.C:
 			for {
