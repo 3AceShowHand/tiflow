@@ -18,6 +18,7 @@ import (
 
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/codec/common"
+	"github.com/pingcap/tiflow/cdc/sinkv2/eventsink"
 )
 
 const (
@@ -30,11 +31,20 @@ type EventBatchEncoder interface {
 	// EncodeCheckpointEvent appends a checkpoint event into the batch.
 	// This event will be broadcast to all partitions to signal a global checkpoint.
 	EncodeCheckpointEvent(ts uint64) (*common.Message, error)
+
 	// AppendRowChangedEvent appends the calling context, a row changed event and the dispatch
 	// topic into the batch
 	AppendRowChangedEvent(context.Context, string, *model.RowChangedEvent, func()) error
+
+	// AppendBatchedRowChangedEvents appends a batch of callbackable row changed events to the encoder
+	AppendBatchedRowChangedEvents(ctx context.Context, topic string, events []*eventsink.RowChangeCallbackableEvent) error
+
+	// AppendTxnEvent appends a callbackable transaction event
+	AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error
+
 	// EncodeDDLEvent appends a DDL event into the batch
 	EncodeDDLEvent(e *model.DDLEvent) (*common.Message, error)
+
 	// Build builds the batch and returns the bytes of key and value.
 	Build() []*common.Message
 }

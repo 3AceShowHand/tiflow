@@ -16,9 +16,11 @@ package craft
 import (
 	"context"
 
+	"github.com/pingcap/errors"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/codec"
 	"github.com/pingcap/tiflow/cdc/sink/codec/common"
+	"github.com/pingcap/tiflow/cdc/sinkv2/eventsink"
 	"github.com/pingcap/tiflow/pkg/config"
 )
 
@@ -56,6 +58,19 @@ func (e *BatchEncoder) AppendRowChangedEvent(
 	if size > e.MaxMessageBytes || rows >= e.MaxBatchSize {
 		e.flush()
 	}
+	return nil
+}
+
+func (e *BatchEncoder) AppendBatchedRowChangedEvents(ctx context.Context, topic string, events []*eventsink.RowChangeCallbackableEvent) error {
+	for _, event := range events {
+		if err := e.AppendRowChangedEvent(ctx, topic, event.Event, event.Callback); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *BatchEncoder) AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error {
 	return nil
 }
 

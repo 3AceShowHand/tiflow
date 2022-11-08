@@ -78,23 +78,9 @@ func (w *encodingWorker) run(ctx context.Context, msgChan *chann.Chann[eventFrag
 }
 
 func (w *encodingWorker) encodeEvents(ctx context.Context, frag eventFragment) error {
-	var err error
-	length := len(frag.event.Event.Rows)
-
-	for idx, event := range frag.event.Event.Rows {
-		// because each TxnCallbackableEvent contains one Callback and multiple RowChangedEvents,
-		// we only append RowChangedEvent attached with a Callback to EventBatchEncoder for the
-		// last RowChangedEvent.
-		if idx != length-1 {
-			err = w.encoder.AppendRowChangedEvent(ctx, "", event, nil)
-		} else {
-			err = w.encoder.AppendRowChangedEvent(ctx, "", event, frag.event.Callback)
-		}
-		if err != nil {
-			return err
-		}
+	if err := w.encoder.AppendTxnEvent(frag.event); err != nil {
+		return err
 	}
-
 	msgs := w.encoder.Build()
 	frag.encodedMsgs = msgs
 	w.writer.dispatchFragToDMLWorker(frag)
