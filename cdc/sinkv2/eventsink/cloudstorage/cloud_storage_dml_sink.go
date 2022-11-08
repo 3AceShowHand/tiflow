@@ -10,6 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package cloudstorage
 
 import (
@@ -67,7 +68,7 @@ func eventFragmentLess(e1, e2 eventFragment) bool {
 // sink is the cloud storage sink.
 // It will send the events to cloud storage systems.
 type sink struct {
-	// msgChan is a unbounded channel to hold eventFragment.
+	// msgChan is an unbounded channel to hold eventFragment.
 	msgChan *chann.Chann[eventFragment]
 	// encodingWorkers defines a group of workers for encoding events.
 	encodingWorkers []*encodingWorker

@@ -199,6 +199,10 @@ func (c *JSONBatchEncoder) AppendBatchedRowChangedEvents(ctx context.Context, to
 	return nil
 }
 
+func (c *JSONBatchEncoder) AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error {
+	return nil
+}
+
 // EncodeCheckpointEvent implements the EventJSONBatchEncoder interface
 func (c *JSONBatchEncoder) EncodeCheckpointEvent(ts uint64) (*common.Message, error) {
 	if !c.enableTiDBExtension {

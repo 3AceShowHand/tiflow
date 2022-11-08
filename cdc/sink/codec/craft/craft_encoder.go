@@ -70,6 +70,10 @@ func (e *BatchEncoder) AppendBatchedRowChangedEvents(ctx context.Context, topic 
 	return nil
 }
 
+func (e *BatchEncoder) AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error {
+	return nil
+}
+
 // EncodeDDLEvent implements the EventBatchEncoder interface
 func (e *BatchEncoder) EncodeDDLEvent(ev *model.DDLEvent) (*common.Message, error) {
 	return common.NewDDLMsg(config.ProtocolCraft,

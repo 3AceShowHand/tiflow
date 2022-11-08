@@ -137,6 +137,11 @@ func (a *BatchEncoder) AppendBatchedRowChangedEvents(ctx context.Context, topic 
 	return nil
 }
 
+// AppendTxnEvent is no-op
+func (a *BatchEncoder) AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error {
+	return nil
+}
+
 // EncodeCheckpointEvent is no-op for now
 func (a *BatchEncoder) EncodeCheckpointEvent(ts uint64) (*common.Message, error) {
 	return nil, nil

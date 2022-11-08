@@ -62,6 +62,23 @@ func (b *BatchEncoder) AppendBatchedRowChangedEvents(ctx context.Context, topic 
 	return nil
 }
 
+func (b *BatchEncoder) AppendTxnEvent(txn *eventsink.TxnCallbackableEvent) error {
+	if b.csvConfig == nil {
+		return cerror.WrapError(cerror.ErrSinkInvalidConfig,
+			errors.New("no csv config provided"))
+	}
+	for _, event := range txn.Event.Rows {
+		row, err := rowChangedEvent2CSVMsg(b.csvConfig, event)
+		if err != nil {
+			return err
+		}
+		b.valueBuf.Write(row.encode())
+		b.batchSize++
+	}
+	b.callbackBuf = append(b.callbackBuf, txn.Callback)
+	return nil
+}
+
 // EncodeDDLEvent implements the EventBatchEncoder interface
 func (b *BatchEncoder) EncodeDDLEvent(e *model.DDLEvent) (*common.Message, error) {
 	return nil, nil
