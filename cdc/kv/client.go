@@ -391,10 +391,11 @@ type eventFeedSession struct {
 	rangeLock *regionspan.RegionRangeLock
 
 	// To identify metrics of different eventFeedSession
-	id                string
-	regionChSizeGauge prometheus.Gauge
-	errChSizeGauge    prometheus.Gauge
-	rangeChSizeGauge  prometheus.Gauge
+	id                          string
+	regionChSizeGauge           prometheus.Gauge
+	errChSizeGauge              prometheus.Gauge
+	rangeChSizeGauge            prometheus.Gauge
+	metricGetRPCContextDuration prometheus.Observer
 
 	streams          map[string]*eventFeedStream
 	streamsLock      sync.RWMutex
@@ -440,8 +441,10 @@ func newEventFeedSession(
 		regionChSizeGauge: clientChannelSize.WithLabelValues("region"),
 		errChSizeGauge:    clientChannelSize.WithLabelValues("err"),
 		rangeChSizeGauge:  clientChannelSize.WithLabelValues("range"),
-		streams:           make(map[string]*eventFeedStream),
-		streamsCanceller:  make(map[string]context.CancelFunc),
+		metricGetRPCContextDuration: regionGetRPCContextDuration.
+			WithLabelValues(changefeed.Namespace, changefeed.ID),
+		streams:          make(map[string]*eventFeedStream),
+		streamsCanceller: make(map[string]context.CancelFunc),
 
 		changefeed: changefeed,
 		tableID:    tableID,
@@ -913,7 +916,7 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 		}, retry.WithBackoffMaxDelay(500),
 			retry.WithTotalRetryDuratoin(time.Duration(s.client.config.RegionRetryDuration)))
 		if retryErr != nil {
-			log.Warn("load regions failed",
+			log.Warn("load region from region cache failed",
 				zap.String("namespace", s.changefeed.Namespace),
 				zap.String("changefeed", s.changefeed.ID),
 				zap.Any("span", nextSpan),
@@ -1059,12 +1062,13 @@ func (s *eventFeedSession) handleError(ctx context.Context, errInfo regionErrorI
 }
 
 func (s *eventFeedSession) getRPCContextForRegion(ctx context.Context, id tikv.RegionVerID) (*tikv.RPCContext, error) {
-	// todo: add metrics to track rpc cost
+	start := time.Now()
 	bo := tikv.NewBackoffer(ctx, tikvRequestMaxBackoff)
 	rpcCtx, err := s.client.regionCache.GetTiKVRPCContext(bo, id, tidbkv.ReplicaReadLeader, 0)
 	if err != nil {
 		return nil, cerror.WrapError(cerror.ErrGetTiKVRPCContext, err)
 	}
+	s.metricGetRPCContextDuration.Observe(time.Since(start).Seconds())
 	return rpcCtx, nil
 }
 

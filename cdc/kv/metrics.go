@@ -110,6 +110,15 @@ var (
 			Help:      "region events batch size",
 			Buckets:   prometheus.ExponentialBuckets(1, 2, 20),
 		})
+
+	regionGetRPCContextDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "ticdc",
+			Subsystem: "kvclient",
+			Name:      "region_get_rpc_context_duration",
+			Help:      "The time cost on get rpc context.",
+			Buckets:   prometheus.ExponentialBuckets(0.001 /* 1 ms */, 2, 18),
+		}, []string{"namespace", "changefeed"})
 )
 
 // InitMetrics registers all metrics in the kv package
@@ -126,6 +135,7 @@ func InitMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(batchResolvedEventSize)
 	registry.MustRegister(grpcPoolStreamGauge)
 	registry.MustRegister(regionEventsBatchSize)
+	registry.MustRegister(regionGetRPCContextDuration)
 
 	// Register client metrics to registry.
 	registry.MustRegister(grpcMetrics)
