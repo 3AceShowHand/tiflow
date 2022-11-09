@@ -479,7 +479,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64, regionCount
 				// Besides the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
-					return s.divideAndSendEventFeedToRegions(ctx, task.span, task.ts)
+					return s.divideAndSendEventFeedToRegions(ctx, task)
 				})
 			}
 		}
@@ -532,8 +532,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context, ts uint64, regionCount
 		return s.regionRouter.Run(ctx)
 	})
 
-	s.requestRangeCh <- rangeRequestTask{span: s.totalSpan, ts: ts}
-	s.rangeChSizeGauge.Inc()
+	s.scheduleDivideRegionAndRequest(ctx, s.totalSpan, ts)
 
 	log.Info("event feed started",
 		zap.String("namespace", s.changefeed.Namespace),
@@ -882,10 +881,10 @@ func (s *eventFeedSession) dispatchRequest(ctx context.Context) error {
 // to region boundaries. When region merging happens, it's possible that it
 // will produce some overlapping spans.
 func (s *eventFeedSession) divideAndSendEventFeedToRegions(
-	ctx context.Context, span regionspan.ComparableSpan, ts uint64,
+	ctx context.Context, request rangeRequestTask,
 ) error {
 	limit := 20
-	nextSpan := span
+	nextSpan := request.span
 
 	for {
 		var (
@@ -932,10 +931,10 @@ func (s *eventFeedSession) divideAndSendEventFeedToRegions(
 			// the End key return by the PD API will be nil to represent the biggest key,
 			partialSpan = partialSpan.Hack()
 
-			sri := newSingleRegionInfo(tiRegion.VerID(), partialSpan, ts, nil)
+			sri := newSingleRegionInfo(tiRegion.VerID(), partialSpan, request.ts, nil)
 			s.scheduleRegionRequest(ctx, sri)
 			// return if no more regions
-			if regionspan.EndCompare(nextSpan.Start, span.End) >= 0 {
+			if regionspan.EndCompare(nextSpan.Start, request.span.End) >= 0 {
 				return nil
 			}
 		}
