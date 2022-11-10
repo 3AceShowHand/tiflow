@@ -14,7 +14,7 @@
 package internal
 
 import (
-	"encoding/json"
+	"github.com/bytedance/sonic"
 
 	"github.com/pingcap/tiflow/cdc/model"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
@@ -32,11 +32,11 @@ type MessageKey struct {
 
 // Encode encodes the message key to a byte slice.
 func (m *MessageKey) Encode() ([]byte, error) {
-	data, err := json.Marshal(m)
+	data, err := sonic.Marshal(m)
 	return data, cerror.WrapError(cerror.ErrMarshalFailed, err)
 }
 
 // Decode codes a message key from a byte slice.
 func (m *MessageKey) Decode(data []byte) error {
-	return cerror.WrapError(cerror.ErrUnmarshalFailed, json.Unmarshal(data, m))
+	return cerror.WrapError(cerror.ErrUnmarshalFailed, sonic.Unmarshal(data, m))
 }

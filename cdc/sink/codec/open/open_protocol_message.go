@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bytedance/sonic"
 	timodel "github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/codec/internal"
@@ -32,7 +33,7 @@ type messageRow struct {
 }
 
 func (m *messageRow) encode() ([]byte, error) {
-	data, err := json.Marshal(m)
+	data, err := sonic.Marshal(m)
 	return data, cerror.WrapError(cerror.ErrMarshalFailed, err)
 }
 
