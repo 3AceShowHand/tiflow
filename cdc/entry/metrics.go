@@ -32,18 +32,19 @@ var (
 			Name:      "ignored_dml_event_count",
 			Help:      "The total count of dml events that are ignored in mounter.",
 		}, []string{"namespace", "changefeed"})
-	mounterGroupInputChanSizeGauge = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	mounterGroupInputChanSizeHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
 			Namespace: "ticdc",
 			Subsystem: "mounter",
 			Name:      "group_input_chan_size",
 			Help:      "The size of input channel of mounter group",
-		}, []string{"namespace", "changefeed", "index"})
+			Buckets:   prometheus.ExponentialBuckets(8, 2, 6), // 8 ~ 256
+		}, []string{"namespace", "changefeed"})
 )
 
 // InitMetrics registers all metrics in this file
 func InitMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(totalRowsCountGauge)
 	registry.MustRegister(ignoredDMLEventCounter)
-	registry.MustRegister(mounterGroupInputChanSizeGauge)
+	registry.MustRegister(mounterGroupInputChanSizeHistogram)
 }

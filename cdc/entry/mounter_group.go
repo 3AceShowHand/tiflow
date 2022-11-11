@@ -15,13 +15,13 @@ package entry
 
 import (
 	"context"
-	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/filter"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -42,6 +42,8 @@ type mounterGroup struct {
 	index     uint64
 
 	changefeedID model.ChangeFeedID
+
+	metricInputChanSizeHistogram prometheus.Observer
 }
 
 const (
@@ -76,12 +78,16 @@ func NewMounterGroup(
 		workerNum: workerNum,
 
 		changefeedID: changefeedID,
+
+		metricInputChanSizeHistogram: mounterGroupInputChanSizeHistogram.
+			WithLabelValues(changefeedID.Namespace, changefeedID.ID),
 	}
 }
 
 func (m *mounterGroup) Run(ctx context.Context) error {
 	defer func() {
-		mounterGroupInputChanSizeGauge.DeleteLabelValues(m.changefeedID.Namespace, m.changefeedID.ID)
+		mounterGroupInputChanSizeHistogram.
+			DeleteLabelValues(m.changefeedID.Namespace, m.changefeedID.ID)
 	}()
 	g, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < m.workerNum; i++ {
@@ -96,8 +102,6 @@ func (m *mounterGroup) Run(ctx context.Context) error {
 func (m *mounterGroup) runWorker(ctx context.Context, index int) error {
 	mounter := NewMounter(m.schemaStorage, m.changefeedID, m.tz, m.filter, m.enableOldValue)
 	rawCh := m.inputCh[index]
-	metrics := mounterGroupInputChanSizeGauge.
-		WithLabelValues(m.changefeedID.Namespace, m.changefeedID.ID, strconv.Itoa(index))
 	ticker := time.NewTicker(defaultMetricInterval)
 	defer ticker.Stop()
 	for {
@@ -106,7 +110,7 @@ func (m *mounterGroup) runWorker(ctx context.Context, index int) error {
 		case <-ctx.Done():
 			return errors.Trace(ctx.Err())
 		case <-ticker.C:
-			metrics.Set(float64(len(rawCh)))
+			m.metricInputChanSizeHistogram.Observe(float64(len(rawCh)))
 		case pEvent = <-rawCh:
 			if pEvent.RawKV.OpType == model.OpTypeResolved {
 				pEvent.MarkFinished()
