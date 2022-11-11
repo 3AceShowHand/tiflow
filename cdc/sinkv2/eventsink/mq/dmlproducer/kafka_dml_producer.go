@@ -170,6 +170,7 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 	case <-ctx.Done():
 		return errors.Trace(ctx.Err())
 	case k.asyncProducer.Input() <- msg:
+		message.Callback()
 	}
 	return nil
 }
@@ -256,13 +257,13 @@ func (k *kafkaDMLProducer) run(ctx context.Context) error {
 				zap.String("changefeed", k.id.ID),
 				zap.Error(err))
 			return errors.Trace(err)
-		case ack := <-k.asyncProducer.Successes():
-			if ack != nil {
-				callback := ack.Metadata.(messageMetaData).callback
-				if callback != nil {
-					callback()
-				}
-			}
+		case _ = <-k.asyncProducer.Successes():
+			//if ack != nil {
+			//	callback := ack.Metadata.(messageMetaData).callback
+			//	if callback != nil {
+			//		callback()
+			//	}
+			//}
 		case err := <-k.asyncProducer.Errors():
 			// We should not wrap a nil pointer if the pointer
 			// is of a subtype of `error` because Go would store the type info
