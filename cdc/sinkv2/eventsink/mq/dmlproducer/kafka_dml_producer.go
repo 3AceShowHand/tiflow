@@ -163,7 +163,7 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 		Partition: partition,
 		Key:       sarama.StringEncoder(message.Key),
 		Value:     sarama.ByteEncoder(message.Value),
-		Metadata:  messageMetaData{callback: message.Callback},
+		//Metadata:  messageMetaData{callback: message.Callback},
 	}
 
 	select {
