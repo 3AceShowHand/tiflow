@@ -165,17 +165,12 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 		Value:     sarama.ByteEncoder(message.Value),
 		Metadata:  messageMetaData{callback: message.Callback},
 	}
-	
-	callback := msg.Metadata.(messageMetaData).callback
-	if callback != nil {
-		callback()
-	}
 
-	//select {
-	//case <-ctx.Done():
-	//	return errors.Trace(ctx.Err())
-	//case k.asyncProducer.Input() <- msg:
-	//}
+	select {
+	case <-ctx.Done():
+		return errors.Trace(ctx.Err())
+	case k.asyncProducer.Input() <- msg:
+	}
 	return nil
 }
 
