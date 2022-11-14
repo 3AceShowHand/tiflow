@@ -45,7 +45,7 @@ const (
 	// This is part of sink performance optimization
 	resolvedTsInterpolateInterval = 200 * time.Millisecond
 	// defaultBatchReadSize is the default batch size of read from sorter
-	defaultBatchReadSize = 256
+	defaultBatchReadSize = 1024
 )
 
 // TODO find a better name or avoid using an interface
