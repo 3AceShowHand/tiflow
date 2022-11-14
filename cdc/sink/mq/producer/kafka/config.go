@@ -387,6 +387,7 @@ func NewSaramaConfig(ctx context.Context, c *Config) (*sarama.Config, error) {
 	config.Net.DialTimeout = c.DialTimeout
 	config.Net.WriteTimeout = c.WriteTimeout
 	config.Net.ReadTimeout = c.ReadTimeout
+	config.Net.MaxOpenRequests = 10
 
 	config.Producer.Partitioner = sarama.NewManualPartitioner
 	config.Producer.MaxMessageBytes = c.MaxMessageBytes
