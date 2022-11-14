@@ -163,15 +163,19 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 		Partition: partition,
 		Key:       sarama.StringEncoder(message.Key),
 		Value:     sarama.ByteEncoder(message.Value),
-		//Metadata:  messageMetaData{callback: message.Callback},
+		Metadata:  messageMetaData{callback: message.Callback},
+	}
+	
+	callback := msg.Metadata.(messageMetaData).callback
+	if callback != nil {
+		callback()
 	}
 
-	select {
-	case <-ctx.Done():
-		return errors.Trace(ctx.Err())
-	case k.asyncProducer.Input() <- msg:
-		message.Callback()
-	}
+	//select {
+	//case <-ctx.Done():
+	//	return errors.Trace(ctx.Err())
+	//case k.asyncProducer.Input() <- msg:
+	//}
 	return nil
 }
 
@@ -257,13 +261,13 @@ func (k *kafkaDMLProducer) run(ctx context.Context) error {
 				zap.String("changefeed", k.id.ID),
 				zap.Error(err))
 			return errors.Trace(err)
-		case _ = <-k.asyncProducer.Successes():
-			//if ack != nil {
-			//	callback := ack.Metadata.(messageMetaData).callback
-			//	if callback != nil {
-			//		callback()
-			//	}
-			//}
+		case ack := <-k.asyncProducer.Successes():
+			if ack != nil {
+				callback := ack.Metadata.(messageMetaData).callback
+				if callback != nil {
+					callback()
+				}
+			}
 		case err := <-k.asyncProducer.Errors():
 			// We should not wrap a nil pointer if the pointer
 			// is of a subtype of `error` because Go would store the type info
