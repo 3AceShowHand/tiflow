@@ -125,6 +125,5 @@ func (d *ConflictDetector[Worker, Txn]) sendToWorker(txn Txn, unlock func(), wor
 	if workerID < 0 {
 		panic("must assign with a valid workerID")
 	}
-	worker := d.workers[workerID]
-	worker.Add(txn, unlock)
+	d.workers[workerID].Add(txn, unlock)
 }

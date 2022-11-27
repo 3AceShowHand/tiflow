@@ -163,7 +163,7 @@ func (w *worker) runBackgroundLoop() {
 				flushTimeSlice = 0
 			}
 		}
-		log.Warn("Transaction sink worker exits unexceptedly",
+		log.Warn("Transaction sink worker exits unexpectedly",
 			zap.String("changefeedID", w.changefeed),
 			zap.Int("workerID", w.ID))
 	}()
