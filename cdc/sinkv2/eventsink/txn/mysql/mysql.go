@@ -62,10 +62,9 @@ type mysqlBackend struct {
 	events []*eventsink.TxnCallbackableEvent
 	rows   int
 
-	statistics                    *metrics.Statistics
-	metricTxnSinkDMLBatchCommit   prometheus.Observer
-	metricTxnSinkDMLBatchCallback prometheus.Observer
-	metricPrepareDMLDuration      prometheus.Observer
+	statistics                  *metrics.Statistics
+	metricTxnSinkDMLBatchCommit prometheus.Observer
+	metricPrepareDMLDuration    prometheus.Observer
 }
 
 // NewMySQLBackends creates a new MySQL sink using schema storage
@@ -107,9 +106,8 @@ func NewMySQLBackends(
 			dmlMaxRetry: defaultDMLMaxRetry,
 			statistics:  statistics,
 
-			metricTxnSinkDMLBatchCommit:   txn.SinkDMLBatchCommit.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
-			metricTxnSinkDMLBatchCallback: txn.SinkDMLBatchCallback.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
-			metricPrepareDMLDuration:      txn.SinkPrepareDMLDuration.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
+			metricTxnSinkDMLBatchCommit: txn.SinkDMLBatchCommit.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
+			metricPrepareDMLDuration:    txn.SinkPrepareDMLDuration.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
 		})
 	}
 
@@ -157,12 +155,11 @@ func (s *mysqlBackend) Flush(ctx context.Context) (err error) {
 		}
 		return errors.Trace(err)
 	}
-	startCallback := time.Now()
+	s.metricTxnSinkDMLBatchCommit.Observe(time.Since(start).Seconds())
+
 	for _, callback := range dmls.callbacks {
 		callback()
 	}
-	s.metricTxnSinkDMLBatchCommit.Observe(startCallback.Sub(start).Seconds())
-	s.metricTxnSinkDMLBatchCallback.Observe(time.Since(startCallback).Seconds())
 
 	// Be friently to GC.
 	for i := 0; i < len(s.events); i++ {

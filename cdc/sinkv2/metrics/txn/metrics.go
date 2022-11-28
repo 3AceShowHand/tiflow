@@ -69,15 +69,6 @@ var (
 			Help:      "Duration of preparing a DML batch",
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 12), // 1ms~8s
 		}, []string{"namespace", "changefeed"})
-
-	SinkDMLBatchCallback = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "ticdc",
-			Subsystem: "sinkv2",
-			Name:      "txn_sink_dml_batch_callback",
-			Help:      "Duration of execuing a batch of callbacks",
-			Buckets:   prometheus.ExponentialBuckets(0.01, 2, 18), // 10ms~1000s
-		}, []string{"namespace", "changefeed"})
 )
 
 // InitMetrics registers all metrics in this file.
@@ -87,6 +78,5 @@ func InitMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(WorkerBusyRatio)
 	registry.MustRegister(WorkerHandledRows)
 	registry.MustRegister(SinkDMLBatchCommit)
-	registry.MustRegister(SinkDMLBatchCallback)
 	registry.MustRegister(SinkPrepareDMLDuration)
 }
