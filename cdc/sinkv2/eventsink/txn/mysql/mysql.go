@@ -65,6 +65,7 @@ type mysqlBackend struct {
 	statistics                    *metrics.Statistics
 	metricTxnSinkDMLBatchCommit   prometheus.Observer
 	metricTxnSinkDMLBatchCallback prometheus.Observer
+	metricPrepareDMLDuration      prometheus.Observer
 }
 
 // NewMySQLBackends creates a new MySQL sink using schema storage
@@ -108,6 +109,7 @@ func NewMySQLBackends(
 
 			metricTxnSinkDMLBatchCommit:   txn.SinkDMLBatchCommit.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
 			metricTxnSinkDMLBatchCallback: txn.SinkDMLBatchCallback.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
+			metricPrepareDMLDuration:      txn.SinkPrepareDMLDuration.WithLabelValues(changefeedID.Namespace, changefeedID.ID),
 		})
 	}
 
@@ -352,6 +354,10 @@ func hasHandleKey(cols []*model.Column) bool {
 
 // prepareDMLs converts model.RowChangedEvent list to query string list and args list
 func (s *mysqlBackend) prepareDMLs() *preparedDMLs {
+	start := time.Now()
+	defer func() {
+		s.metricPrepareDMLDuration.Observe(time.Since(start).Seconds())
+	}()
 	// TODO: use a sync.Pool to reduce allocations.
 	startTs := make([]uint64, 0, s.rows)
 	sqls := make([]string, 0, s.rows)
