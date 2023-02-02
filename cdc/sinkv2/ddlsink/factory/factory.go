@@ -27,6 +27,7 @@ import (
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/sink"
+	v2 "github.com/pingcap/tiflow/pkg/sink/kafka/v2"
 	pmysql "github.com/pingcap/tiflow/pkg/sink/mysql"
 )
 
@@ -43,6 +44,10 @@ func New(
 	schema := strings.ToLower(sinkURI.Scheme)
 	switch schema {
 	case sink.KafkaScheme, sink.KafkaSSLScheme:
+		if config.GetGlobalServerConfig().Debug.EnableKafkaSinkV2 {
+			kafka.NewAdminClientImpl = v2.NewClusterAdminClient
+			kafka.NewClientImpl = v2.NewKafkaGoClient
+		}
 		return mq.NewKafkaDDLSink(ctx, sinkURI, cfg,
 			kafka.NewAdminClientImpl, kafka.NewClientImpl, ddlproducer.NewKafkaDDLProducer)
 	case sink.BlackHoleScheme:

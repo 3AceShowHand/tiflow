@@ -29,13 +29,16 @@ type admin struct {
 }
 
 // NewClusterAdminClient return an admin client
-func NewClusterAdminClient(endpoints []string) pkafka.ClusterAdminClient {
+func NewClusterAdminClient(
+	_ context.Context,
+	o *pkafka.Options,
+) (pkafka.ClusterAdminClient, error) {
 	client := &kafka.Client{
-		Addr: kafka.TCP(endpoints...),
+		Addr: kafka.TCP(o.BrokerEndpoints...),
 	}
 	return &admin{
 		client: client,
-	}
+	}, nil
 }
 
 func (a *admin) clusterMetadata(ctx context.Context) (*kafka.MetadataResponse, error) {
