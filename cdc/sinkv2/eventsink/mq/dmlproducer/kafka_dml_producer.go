@@ -68,6 +68,16 @@ type kafkaDMLProducer struct {
 
 	writer *kafka.Writer
 }
+type manualPartitioner struct{}
+
+func newManualPartitioner() kafka.Balancer {
+	return &manualPartitioner{}
+}
+
+//nolint:unused
+func (m manualPartitioner) Balance(msg kafka.Message, partitions ...int) (partition int) {
+	return msg.Partition
+}
 
 // NewKafkaDMLProducer creates a new kafka producer.
 func NewKafkaDMLProducer(
@@ -106,7 +116,7 @@ func NewKafkaDMLProducer(
 
 	writer := &kafka.Writer{
 		Addr:     kafka.TCP(config.BrokerEndpoints...),
-		Balancer: &kafka.RoundRobin{},
+		Balancer: newManualPartitioner(),
 
 		MaxAttempts: 10,
 
