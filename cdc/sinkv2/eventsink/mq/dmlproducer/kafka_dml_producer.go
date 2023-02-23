@@ -146,7 +146,7 @@ func NewKafkaDMLProducer(
 			}
 
 			for _, msg := range messages {
-				meta := msg.Metadata.(messageMetaData)
+				meta := msg.WriterData.(messageMetaData)
 				meta.callback()
 			}
 			log.Info("send message success, all messages callback committed",
@@ -223,11 +223,11 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 	})
 
 	err := k.writer.WriteMessages(ctx, kafka.Message{
-		Topic:     topic,
-		Partition: int(partition),
-		Key:       message.Key,
-		Value:     message.Value,
-		Metadata:  messageMetaData{callback: message.Callback},
+		Topic:      topic,
+		Partition:  int(partition),
+		Key:        message.Key,
+		Value:      message.Value,
+		WriterData: messageMetaData{callback: message.Callback},
 	})
 	return err
 
