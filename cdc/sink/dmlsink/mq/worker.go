@@ -294,18 +294,21 @@ func (w *worker) sendMessages(ctx context.Context) error {
 			if err := future.Ready(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			for _, message := range future.Messages {
-				start := time.Now()
-				if err := w.statistics.RecordBatchExecution(func() (int, error) {
-					if err := w.producer.AsyncSendMessage(ctx, future.Topic, future.Partition, message); err != nil {
-						return 0, err
-					}
-					return message.GetRowsCount(), nil
-				}); err != nil {
-					return err
+
+			start := time.Now()
+			if err := w.statistics.RecordBatchExecution(func() (int, error) {
+				if err := w.producer.AsyncSendMessages(ctx, future.Topic, future.Partition, future.Messages...); err != nil {
+					return 0, err
 				}
-				w.metricMQWorkerSendMessageDuration.Observe(time.Since(start).Seconds())
+				count := 0
+				for _, msg := range future.Messages {
+					count += msg.GetRowsCount()
+				}
+				return count, nil
+			}); err != nil {
+				return nil
 			}
+			w.metricMQWorkerSendMessageDuration.Observe(time.Since(start).Seconds())
 		}
 	}
 }
