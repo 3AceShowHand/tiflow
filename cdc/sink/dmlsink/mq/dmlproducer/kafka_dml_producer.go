@@ -133,6 +133,29 @@ func (k *kafkaDMLProducer) AsyncSendMessage(
 		message.Key, message.Value, message.Callback)
 }
 
+func (k *kafkaDMLProducer) AsyncSendMessages(
+	ctx context.Context, topic string, partition int32, messages ...*common.Message,
+) error {
+	// We have to hold the lock to avoid writing to a closed producer.
+	// Close may be blocked for a long time.
+	k.closedMu.RLock()
+	defer k.closedMu.RUnlock()
+
+	// If the producer is closed, we should skip the message and return an error.
+	if k.closed {
+		return cerror.ErrKafkaProducerClosed.GenWithStackByArgs()
+	}
+	failpoint.Inject("KafkaSinkAsyncSendError", func() {
+		// simulate sending message to input channel successfully but flushing
+		// message to Kafka meets error
+		log.Info("KafkaSinkAsyncSendError error injected", zap.String("namespace", k.id.Namespace),
+			zap.String("changefeed", k.id.ID))
+		k.failpointCh <- errors.New("kafka sink injected error")
+		failpoint.Return(nil)
+	})
+	return k.asyncProducer.AsyncSendMessages(ctx, topic, partition, messages)
+}
+
 func (k *kafkaDMLProducer) Close() {
 	// We have to hold the lock to synchronize closing with writing.
 	k.closedMu.Lock()

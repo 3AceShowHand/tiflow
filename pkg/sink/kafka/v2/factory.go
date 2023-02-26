@@ -22,6 +22,7 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	pkafka "github.com/pingcap/tiflow/pkg/sink/kafka"
 	"github.com/pingcap/tiflow/pkg/util"
 	"github.com/segmentio/kafka-go"
@@ -205,6 +206,8 @@ func (f *factory) AsyncProducer(
 				callback()
 			}
 		}
+		log.Info("confirm messages",
+			zap.Int("count", len(messages)))
 	}
 
 	return aw, nil
@@ -328,6 +331,30 @@ func (a *asyncWriter) AsyncSend(ctx context.Context, topic string,
 		Value:      value,
 		WriterData: callback,
 	})
+}
+
+func (a *asyncWriter) AsyncSendMessages(ctx context.Context, topic string, partition int32, messages []*common.Message) error {
+	select {
+	case <-ctx.Done():
+		return errors.Trace(ctx.Err())
+	case <-a.closedChan:
+		log.Warn("Receive from closed chan in kafka producer",
+			zap.String("namespace", a.changefeedID.Namespace),
+			zap.String("changefeed", a.changefeedID.ID))
+		return nil
+	default:
+	}
+	msgs := make([]kafka.Message, len(messages))
+	for i, msg := range messages {
+		msgs[i] = kafka.Message{
+			Topic:      topic,
+			Partition:  int(partition),
+			Key:        msg.Key,
+			Value:      msg.Value,
+			WriterData: msg.Callback,
+		}
+	}
+	return a.w.WriteMessages(ctx, msgs...)
 }
 
 // AsyncRunCallback process the messages that has sent to kafka,

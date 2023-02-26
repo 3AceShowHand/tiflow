@@ -57,6 +57,25 @@ func (m *MockDMLProducer) AsyncSendMessage(_ context.Context, topic string,
 	return nil
 }
 
+func (m *MockDMLProducer) AsyncSendMessages(
+	_ context.Context, topic string, partition int32, messages ...*common.Message,
+) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := fmt.Sprintf("%s-%d", topic, partition)
+	if _, ok := m.events[key]; !ok {
+		m.events[key] = make([]*common.Message, 0)
+	}
+
+	for _, msg := range messages {
+		m.events[key] = append(m.events[key], msg)
+		msg.Callback()
+	}
+
+	return nil
+}
+
 // Close do nothing.
 func (m *MockDMLProducer) Close() {}
 
