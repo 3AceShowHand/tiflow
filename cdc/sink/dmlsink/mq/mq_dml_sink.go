@@ -115,6 +115,7 @@ func newDMLSink(
 // WriteEvents writes events to the sink.
 // This is an asynchronously and thread-safe method.
 func (s *dmlSink) WriteEvents(rows ...*dmlsink.RowChangeCallbackableEvent) error {
+	groups := make(map[TopicPartitionKey][]*dmlsink.RowChangeCallbackableEvent)
 	for _, row := range rows {
 		if row.GetTableSinkState() != state.TableSinkSinking {
 			// The table where the event comes from is in stopping, so it's safe
@@ -128,15 +129,23 @@ func (s *dmlSink) WriteEvents(rows ...*dmlsink.RowChangeCallbackableEvent) error
 			return errors.Trace(err)
 		}
 		partition := s.eventRouter.GetPartitionForRowChange(row.Event, partitionNum)
-		// This never be blocked because this is an unbounded channel.
-		s.worker.msgChan.In() <- mqEvent{
-			key: TopicPartitionKey{
-				Topic: topic, Partition: partition,
-			},
-			rowEvent: row,
+		key := TopicPartitionKey{
+			Topic:     topic,
+			Partition: partition,
 		}
+		if groups[key] == nil {
+			groups[key] = make([]*dmlsink.RowChangeCallbackableEvent, 0, 1)
+		}
+		groups[key] = append(groups[key], row)
 	}
 
+	for key, group := range groups {
+		// This never be blocked because this is an unbounded channel.
+		s.worker.msgChan.In() <- eventGroup{
+			key:    key,
+			events: group,
+		}
+	}
 	return nil
 }
 

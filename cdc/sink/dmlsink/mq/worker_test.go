@@ -32,7 +32,7 @@ import (
 )
 
 func newBatchEncodeWorker(ctx context.Context, t *testing.T) (*worker, dmlproducer.DMLProducer) {
-	// 200 is about the size of a rowEvent change.
+	// 200 is about the size of a events change.
 	encoderConfig := common.NewConfig(config.ProtocolOpen).WithMaxMessageBytes(200)
 	builder, err := builder.NewEventBatchEncoderBuilder(context.Background(), encoderConfig)
 	require.Nil(t, err)
@@ -45,7 +45,7 @@ func newBatchEncodeWorker(ctx context.Context, t *testing.T) (*worker, dmlproduc
 }
 
 func newNonBatchEncodeWorker(ctx context.Context, t *testing.T) (*worker, dmlproducer.DMLProducer) {
-	// 300 is about the size of a rowEvent change.
+	// 300 is about the size of a events change.
 	encoderConfig := common.NewConfig(config.ProtocolCanalJSON).WithMaxMessageBytes(300)
 	builder, err := builder.NewEventBatchEncoderBuilder(context.Background(), encoderConfig)
 	require.Nil(t, err)
@@ -84,9 +84,9 @@ func TestNonBatchEncode_SendMessages(t *testing.T) {
 		expected += i
 
 		bit := i
-		worker.msgChan.In() <- mqEvent{
+		worker.msgChan.In() <- eventGroup{
 			key: key,
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: row,
 				Callback: func() {
 					total += bit
@@ -135,9 +135,9 @@ func TestBatchEncode_Batch(t *testing.T) {
 	}
 
 	for i := 0; i < 512; i++ {
-		worker.msgChan.In() <- mqEvent{
+		worker.msgChan.In() <- eventGroup{
 			key: key,
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event:     row,
 				Callback:  func() {},
 				SinkState: &tableStatus,
@@ -146,7 +146,7 @@ func TestBatchEncode_Batch(t *testing.T) {
 	}
 
 	// Test batching returns when the events count is equal to the batch size.
-	batch := make([]mqEvent, 512)
+	batch := make([]eventGroup, 512)
 	endIndex, err := worker.batch(ctx, batch, time.Minute)
 	require.NoError(t, err)
 	require.Equal(t, 512, endIndex)
@@ -174,9 +174,9 @@ func TestBatchEncode_Group(t *testing.T) {
 
 	tableStatus := state.TableSinkSinking
 
-	events := []mqEvent{
+	events := []eventGroup{
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 1,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -188,7 +188,7 @@ func TestBatchEncode_Group(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -200,7 +200,7 @@ func TestBatchEncode_Group(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 3,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -212,7 +212,7 @@ func TestBatchEncode_Group(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "aa", Table: "bb"},
@@ -224,7 +224,7 @@ func TestBatchEncode_Group(t *testing.T) {
 			key: key2,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "aaa", Table: "bbb"},
@@ -267,9 +267,9 @@ func TestBatchEncode_GroupWhenTableStopping(t *testing.T) {
 	defer worker.close()
 	replicatingStatus := state.TableSinkSinking
 	stoppedStatus := state.TableSinkStopping
-	events := []mqEvent{
+	events := []eventGroup{
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 1,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -281,7 +281,7 @@ func TestBatchEncode_GroupWhenTableStopping(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -293,7 +293,7 @@ func TestBatchEncode_GroupWhenTableStopping(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 3,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -338,9 +338,9 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 	defer cancel()
 	worker, p := newBatchEncodeWorker(ctx, t)
 	defer worker.close()
-	events := []mqEvent{
+	events := []eventGroup{
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 1,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -352,7 +352,7 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -364,7 +364,7 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 3,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -376,7 +376,7 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "aa", Table: "bb"},
@@ -388,7 +388,7 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 			key: key2,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "aaa", Table: "bbb"},
@@ -400,7 +400,7 @@ func TestBatchEncode_SendMessages(t *testing.T) {
 			key: key3,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 3,
 					Table:    &model.TableName{Schema: "aaa", Table: "bbb"},
@@ -478,9 +478,9 @@ func TestNonBatchEncode_SendMessagesWhenTableStopping(t *testing.T) {
 	defer worker.close()
 	replicatingStatus := state.TableSinkSinking
 	stoppedStatus := state.TableSinkStopping
-	events := []mqEvent{
+	events := []eventGroup{
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 1,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -492,7 +492,7 @@ func TestNonBatchEncode_SendMessagesWhenTableStopping(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
@@ -504,7 +504,7 @@ func TestNonBatchEncode_SendMessagesWhenTableStopping(t *testing.T) {
 			key: key1,
 		},
 		{
-			rowEvent: &dmlsink.RowChangeCallbackableEvent{
+			events: &dmlsink.RowChangeCallbackableEvent{
 				Event: &model.RowChangedEvent{
 					CommitTs: 3,
 					Table:    &model.TableName{Schema: "a", Table: "b"},
