@@ -18,11 +18,14 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/config"
+	"github.com/pingcap/tiflow/pkg/sink/codec"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -430,4 +433,19 @@ func TestMaxMessageBytes(t *testing.T) {
 	encoder = NewJSONBatchEncoderBuilder(cfg).Build()
 	err = encoder.AppendRowChangedEvent(ctx, topic, testEvent, nil)
 	require.NotNil(t, err)
+}
+
+func TestEncoderLargeBlobEvent(t *testing.T) {
+	event := codec.NewLargeEvents(5 * 1024 * 1024)
+
+	config := common.NewConfig(config.ProtocolCanalJSON).WithMaxMessageBytes(100 * 1024 * 1024)
+	encoder := NewJSONBatchEncoderBuilder(config).Build()
+	err := encoder.AppendRowChangedEvent(context.Background(), "", event, nil)
+	require.NoError(t, err)
+
+	result := encoder.Build()
+	require.Len(t, result, 1)
+
+	size := len(result[0].Value)
+	log.Info("message size", zap.Int("size", size))
 }

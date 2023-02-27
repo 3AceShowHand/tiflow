@@ -21,12 +21,15 @@ import (
 	"testing"
 
 	"github.com/linkedin/goavro/v2"
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
+	"github.com/pingcap/tiflow/pkg/sink/codec"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func setupEncoderAndSchemaRegistry(
@@ -902,6 +905,23 @@ func TestGetAvroNamespace(t *testing.T) {
 		"N_amespace.S_chema",
 		getAvroNamespace("N-amespace", &model.TableName{Schema: "S.chema", Table: "normalTable"}),
 	)
+}
+
+func TestEncoderLargeBlobEvent(t *testing.T) {
+	event := codec.NewLargeEvents(5 * 1024 * 1024)
+
+	encoder, err := setupEncoderAndSchemaRegistry(true, "precise", "long")
+	require.NoError(t, err)
+	defer teardownEncoderAndSchemaRegistry()
+
+	err = encoder.AppendRowChangedEvent(context.Background(), "", event, nil)
+	require.NoError(t, err)
+
+	result := encoder.Build()
+	require.Len(t, result, 1, "one message should be built")
+
+	size := len(result[0].Value)
+	log.Info("message size", zap.Int("size", size))
 }
 
 func TestArvoAppendRowChangedEventWithCallback(t *testing.T) {
