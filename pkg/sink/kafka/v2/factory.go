@@ -206,8 +206,6 @@ func (f *factory) AsyncProducer(
 				callback()
 			}
 		}
-		log.Info("confirm messages",
-			zap.Int("count", len(messages)))
 	}
 
 	return aw, nil
