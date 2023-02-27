@@ -19,11 +19,12 @@ import (
 func main() {
 	changefeed := model.DefaultChangeFeedID("test")
 	option := kafka.NewOptions()
+	option.MaxMessageBytes = 1024 * 1024
 	option.BrokerEndpoints = []string{"127.0.0.1:9092"}
 	option.ClientID = "kafka-client"
 
 	factory, err := v2.NewFactory(option, changefeed)
-	//	factory, err := kafka.NewSaramaFactory(option, changefeed)
+	// factory, err := kafka.NewSaramaFactory(option, changefeed)
 	if err != nil {
 		log.Error("create kafka factory failed", zap.Error(err))
 		return
@@ -52,24 +53,33 @@ func main() {
 	events := make(chan []*common.Message, 1024)
 
 	wg.Add(1)
+	ticker := time.NewTicker(15 * time.Millisecond)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			ticker.Stop()
+			wg.Done()
+		}()
 		for {
-			rand.Read(value)
-			messages := make([]*common.Message, 0, 1024)
-			for i := 0; i < 1024; i++ {
-				messages = append(messages, &common.Message{
-					Key:   key,
-					Value: value,
-					Callback: func() {
-						atomic.AddUint64(&ackTotal, 1)
-					},
-				})
-			}
 			select {
 			case <-ctx.Done():
 				return
-			case events <- messages:
+			case <-ticker.C:
+				rand.Read(value)
+				messages := make([]*common.Message, 0, 1024)
+				for i := 0; i < 1024; i++ {
+					messages = append(messages, &common.Message{
+						Key:   key,
+						Value: value,
+						Callback: func() {
+							atomic.AddUint64(&ackTotal, 1)
+						},
+					})
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case events <- messages:
+				}
 			}
 		}
 	}()
