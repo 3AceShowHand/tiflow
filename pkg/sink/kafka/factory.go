@@ -22,6 +22,7 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/pingcap/tiflow/pkg/util"
 	"go.uber.org/zap"
 )
@@ -83,6 +84,8 @@ type AsyncProducer interface {
 	// and run tha attached callback. the caller should call this
 	// method in a background goroutine
 	AsyncRunCallback(ctx context.Context) error
+
+	AsyncSendMessages(ctx context.Context, topic string, partition int, messages []*common.Message) error
 }
 
 type saramaSyncProducer struct {
@@ -280,6 +283,15 @@ func (p *saramaAsyncProducer) AsyncSend(ctx context.Context,
 	case <-p.closedChan:
 		return nil
 	case p.producer.Input() <- msg:
+	}
+	return nil
+}
+
+func (p *saramaAsyncProducer) AsyncSendMessages(ctx context.Context, topic string, partition int, messages []*common.Message) error {
+	for _, msg := range messages {
+		if err := p.AsyncSend(ctx, topic, int32(partition), msg.Key, msg.Value, msg.Callback); err != nil {
+			return err
+		}
 	}
 	return nil
 }
