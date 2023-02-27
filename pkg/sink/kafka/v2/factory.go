@@ -135,6 +135,7 @@ func (f *factory) newWriter(async bool) *kafka.Writer {
 		WriteTimeout: f.options.WriteTimeout,
 		RequiredAcks: kafka.RequiredAcks(f.options.RequiredAcks),
 		BatchSize:    10000,
+		BatchTimeout: 10 * time.Millisecond,
 		BatchBytes:   int64(f.options.MaxMessageBytes),
 		Async:        async,
 	}
@@ -387,3 +388,5 @@ func (a *asyncWriter) AsyncRunCallback(ctx context.Context) error {
 		return errors.WrapError(errors.ErrKafkaAsyncSendMessage, err)
 	}
 }
+
+//./bin/kafka-producer-perf-test --num-records 500000 --record-size 10922 --topic kafka-client-benchmark --throughput 1000000 --producer-props bootstrap.servers=10.2.7.24:9092 acks=all
