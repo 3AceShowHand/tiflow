@@ -31,6 +31,8 @@ func NewSaramaConfig(o *Options) (*sarama.Config, error) {
 	config := sarama.NewConfig()
 	config.ClientID = o.ClientID
 
+	config.Net.MaxOpenRequests = 1
+
 	version, err := sarama.ParseKafkaVersion(o.Version)
 	if err != nil {
 		return nil, cerror.WrapError(cerror.ErrKafkaInvalidVersion, err)
