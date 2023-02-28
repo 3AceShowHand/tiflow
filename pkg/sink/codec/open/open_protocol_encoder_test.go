@@ -17,12 +17,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/config"
+	"github.com/pingcap/tiflow/pkg/sink/codec"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/pingcap/tiflow/pkg/sink/codec/internal"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestBuildOpenProtocolBatchEncoder(t *testing.T) {
@@ -207,4 +210,19 @@ func TestOpenProtocolBatchCodec(t *testing.T) {
 	config.MaxBatchSize = 64
 	tester := internal.NewDefaultBatchTester()
 	tester.TestBatchCodec(t, NewBatchEncoderBuilder(config), NewBatchDecoder)
+}
+
+func TestEncoderLargeBlobEvent(t *testing.T) {
+	event := codec.NewLargeEvents(5 * 1024 * 1024)
+
+	config := common.NewConfig(config.ProtocolOpen).WithMaxMessageBytes(100 * 1024 * 1024)
+	encoder := NewBatchEncoderBuilder(config).Build()
+	err := encoder.AppendRowChangedEvent(context.Background(), "", event, nil)
+	require.NoError(t, err)
+
+	result := encoder.Build()
+	require.Len(t, result, 1)
+
+	size := len(result[0].Value)
+	log.Info("message size", zap.Int("size", size))
 }
