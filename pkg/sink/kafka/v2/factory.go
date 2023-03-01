@@ -162,8 +162,7 @@ func (f *factory) newWriter(async bool) *kafka.Writer {
 		ReadTimeout:  f.options.ReadTimeout,
 		WriteTimeout: f.options.WriteTimeout,
 		RequiredAcks: kafka.RequiredAcks(f.options.RequiredAcks),
-		BatchSize:    10000,
-		BatchTimeout: 10 * time.Millisecond,
+		BatchSize:    1000,
 		BatchBytes:   int64(f.options.MaxMessageBytes),
 		Async:        async,
 	}
