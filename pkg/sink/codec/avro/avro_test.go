@@ -904,6 +904,39 @@ func TestGetAvroNamespace(t *testing.T) {
 	)
 }
 
+func TestAvroAppendDeleteEvent(t *testing.T) {
+	t.Parallel()
+
+	encoder, err := setupEncoderAndSchemaRegistry(true, "precise", "long")
+	require.NoError(t, err)
+	defer teardownEncoderAndSchemaRegistry()
+
+	row := &model.RowChangedEvent{
+		CommitTs:  1,
+		Table:     &model.TableName{Schema: "a", Table: "b"},
+		TableInfo: &model.TableInfo{TableName: model.TableName{Schema: "a", Table: "b"}},
+		PreColumns: []*model.Column{{
+			Name:  "col1",
+			Type:  mysql.TypeVarchar,
+			Value: []byte("aa"),
+		}},
+		ColInfos: []rowcodec.ColInfo{{
+			ID:            1000,
+			IsPKHandle:    true,
+			VirtualGenCol: false,
+			Ft:            types.NewFieldType(mysql.TypeVarchar),
+		}},
+	}
+
+	ctx := context.Background()
+	err = encoder.AppendRowChangedEvent(ctx, "", row, nil)
+	require.NoError(t, err)
+
+	message := encoder.Build()
+	require.Len(t, message, 1)
+	require.Nil(t, message[0].Value)
+}
+
 func TestArvoAppendRowChangedEventWithCallback(t *testing.T) {
 	t.Parallel()
 
