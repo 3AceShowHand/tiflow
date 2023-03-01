@@ -793,10 +793,7 @@ func (p *processor) createAndDriveSchemaStorage(ctx cdcContext.Context) (entry.S
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	meta, err := kv.GetSnapshotMeta(kvStorage, ddlStartTs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	meta := kv.GetSnapshotMeta(kvStorage, ddlStartTs)
 	schemaStorage, err := entry.NewSchemaStorage(meta, ddlStartTs,
 		p.changefeed.Info.Config.ForceReplicate, p.changefeedID)
 	if err != nil {

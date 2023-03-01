@@ -55,10 +55,7 @@ func newSchemaWrap4Owner(
 	)
 	if kvStorage != nil {
 		var err error
-		meta, err = kv.GetSnapshotMeta(kvStorage, startTs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		meta = kv.GetSnapshotMeta(kvStorage, startTs)
 		version, err = schema.GetSchemaVersion(meta)
 		if err != nil {
 			return nil, errors.Trace(err)

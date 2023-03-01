@@ -125,8 +125,7 @@ func newMockDDLJobPuller(t *testing.T, puller Puller, needSchemaSnap bool) (DDLJ
 		helper = entry.NewSchemaTestHelper(t)
 		kvStorage := helper.Storage()
 		ts := helper.GetCurrentMeta().StartTS
-		meta, err := kv.GetSnapshotMeta(kvStorage, ts)
-		require.Nil(t, err)
+		meta := kv.GetSnapshotMeta(kvStorage, ts)
 		schemaSnap, err := schema.NewSingleSnapshotFromMeta(meta, ts, false)
 		require.Nil(t, err)
 		res.schemaSnapshot = schemaSnap

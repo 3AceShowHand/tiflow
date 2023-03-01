@@ -26,11 +26,9 @@ import (
 	tikvconfig "github.com/tikv/client-go/v2/config"
 )
 
-// GetSnapshotMeta returns tidb meta information
-// TODO: Simplify the signature of this function
-func GetSnapshotMeta(tiStore tidbkv.Storage, ts uint64) (*meta.Meta, error) {
+func GetSnapshotMeta(tiStore tidbkv.Storage, ts uint64) *meta.Meta {
 	snapshot := tiStore.GetSnapshot(tidbkv.NewVersion(ts))
-	return meta.NewSnapshotMeta(snapshot), nil
+	return meta.NewSnapshotMeta(snapshot)
 }
 
 // CreateTiStore creates a tikv storage client

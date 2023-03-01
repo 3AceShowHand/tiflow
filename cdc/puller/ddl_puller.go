@@ -162,11 +162,7 @@ func (p *ddlJobPullerImpl) initJobTableMeta() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	snap, err := kv.GetSnapshotMeta(p.kvStorage, version.Ver)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+	snap := kv.GetSnapshotMeta(p.kvStorage, version.Ver)
 	dbInfos, err := snap.ListDatabases()
 	if err != nil {
 		return cerror.WrapError(cerror.ErrMetaListDatabases, err)
@@ -458,10 +454,7 @@ func NewDDLJobPuller(
 	replicaConfig *config.ReplicaConfig,
 	changefeed model.ChangeFeedID,
 ) (DDLJobPuller, error) {
-	meta, err := kv.GetSnapshotMeta(kvStorage, checkpointTs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	meta := kv.GetSnapshotMeta(kvStorage, checkpointTs)
 	schemaSnap, err := schema.NewSingleSnapshotFromMeta(meta, checkpointTs, replicaConfig.ForceReplicate)
 	if err != nil {
 		return nil, errors.Trace(err)
