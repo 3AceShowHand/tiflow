@@ -32,6 +32,10 @@ func NewFactory(
 		return nil, err
 	}
 
+	log.Info("confluent is used to create the kafka factory",
+		zap.String("namespace", changefeedID.Namespace),
+		zap.String("changefeed", changefeedID.ID))
+
 	return &factory{
 		options:      options,
 		changefeedID: changefeedID,
@@ -56,10 +60,10 @@ func (f *factory) AsyncProducer(
 	failpointCh chan error,
 ) (pkafka.AsyncProducer, error) {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": strings.Join(f.options.BrokerEndpoints, ","),
-		"client.id":         f.options.ClientID,
-		"message.max.bytes": f.options.MaxMessageBytes,
-		// "max.in.flight":     5,
+		"bootstrap.servers":     strings.Join(f.options.BrokerEndpoints, ","),
+		"client.id":             f.options.ClientID,
+		"message.max.bytes":     f.options.MaxMessageBytes,
+		"max.in.flight":         5,
 		"request.required.acks": "all",
 	})
 	if err != nil {
