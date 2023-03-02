@@ -31,7 +31,7 @@ import (
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/sink"
 	"github.com/pingcap/tiflow/pkg/sink/kafka"
-	"github.com/pingcap/tiflow/pkg/sink/kafka/confluent"
+	v2 "github.com/pingcap/tiflow/pkg/sink/kafka/v2"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -69,7 +69,7 @@ func New(
 	case sink.KafkaScheme, sink.KafkaSSLScheme:
 		factoryCreator := kafka.NewSaramaFactory
 		if config.GetGlobalServerConfig().Debug.EnableKafkaSinkV2 {
-			factoryCreator = confluent.NewFactory
+			factoryCreator = v2.NewFactory
 		}
 		mqs, err := mq.NewKafkaDMLSink(ctx, sinkURI, cfg, errCh,
 			factoryCreator, dmlproducer.NewKafkaDMLProducer)
