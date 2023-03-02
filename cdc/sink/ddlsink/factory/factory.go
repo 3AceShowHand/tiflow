@@ -27,7 +27,7 @@ import (
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/sink"
 	"github.com/pingcap/tiflow/pkg/sink/kafka"
-	v2 "github.com/pingcap/tiflow/pkg/sink/kafka/v2"
+	"github.com/pingcap/tiflow/pkg/sink/kafka/confluent"
 	pmysql "github.com/pingcap/tiflow/pkg/sink/mysql"
 )
 
@@ -46,7 +46,7 @@ func New(
 	case sink.KafkaScheme, sink.KafkaSSLScheme:
 		factoryCreator := kafka.NewSaramaFactory
 		if config.GetGlobalServerConfig().Debug.EnableKafkaSinkV2 {
-			factoryCreator = v2.NewFactory
+			factoryCreator = confluent.NewFactory
 		}
 		return mq.NewKafkaDDLSink(ctx, sinkURI, cfg,
 			factoryCreator, ddlproducer.NewKafkaDDLProducer)
