@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -11,24 +12,54 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/sink/kafka"
+	"github.com/pingcap/tiflow/pkg/sink/kafka/confluent"
+	v2 "github.com/pingcap/tiflow/pkg/sink/kafka/v2"
 	"go.uber.org/zap"
 )
 
+var (
+	library string
+	brokers string
+)
+
+func init() {
+	flag.StringVar(&library, "library", "sarama", "kafka library")
+	flag.StringVar(&brokers, "brokers", "127.0.0.1:9092", "kafka brokers")
+}
+
 func main() {
+	flag.Parse()
+
 	changefeed := model.DefaultChangeFeedID("test")
 	option := kafka.NewOptions()
 	option.MaxMessageBytes = 1024 * 1024
-	option.BrokerEndpoints = []string{"127.0.0.1:9092"}
+	option.BrokerEndpoints = []string{brokers}
 	option.ClientID = "kafka-client"
 
-	// factory, err := v2.NewFactory(option, changefeed)
-	factory, err := kafka.NewSaramaFactory(option, changefeed)
+	var (
+		factory kafka.Factory
+		err     error
+	)
+
+	switch library {
+	case "sarama":
+		factory, err = kafka.NewSaramaFactory(option, changefeed)
+	case "kafka-go":
+		factory, err = v2.NewFactory(option, changefeed)
+	case "confluent":
+		factory, err = confluent.NewFactory(option, changefeed)
+	default:
+		panic("the library is not supported")
+	}
 	if err != nil {
 		log.Error("create kafka factory failed", zap.Error(err))
 		return
 	}
 
-	asyncProducer, err := factory.AsyncProducer(make(chan struct{}), make(chan error, 1))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	asyncProducer, err := factory.AsyncProducer(ctx, make(chan struct{}), make(chan error, 1))
 	if err != nil {
 		log.Error("create kafka async producer failed", zap.Error(err))
 		return
@@ -38,9 +69,6 @@ func main() {
 	var key []byte
 	value := make([]byte, 10240)
 	topic := "kafka-client-benchmark"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	var (
 		total    uint64

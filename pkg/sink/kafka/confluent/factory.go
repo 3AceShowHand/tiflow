@@ -2,12 +2,14 @@ package confluent
 
 import (
 	"context"
+	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	pkafka "github.com/pingcap/tiflow/pkg/sink/kafka"
 	v2 "github.com/pingcap/tiflow/pkg/sink/kafka/v2"
 	"github.com/pingcap/tiflow/pkg/util"
@@ -54,7 +56,7 @@ func (f *factory) AsyncProducer(
 	failpointCh chan error,
 ) (pkafka.AsyncProducer, error) {
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": f.options.BrokerEndpoints,
+		"bootstrap.servers": strings.Join(f.options.BrokerEndpoints, ","),
 		"client.id":         f.options.ClientID,
 		"message.max.bytes": f.options.MaxMessageBytes,
 		// "max.in.flight":     5,
@@ -86,6 +88,16 @@ type asyncProducer struct {
 	closedChan   chan struct{}
 	failpointCh  chan error
 	changefeedID model.ChangeFeedID
+}
+
+func (a *asyncProducer) AsyncSendMessages(ctx context.Context, topic string, partition int, messages []*common.Message) error {
+	for _, msg := range messages {
+		err := a.AsyncSend(ctx, topic, int32(partition), msg.Key, msg.Value, msg.Callback)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (a *asyncProducer) AsyncSend(ctx context.Context, topic string,
