@@ -164,6 +164,7 @@ func (f *factory) newWriter(async bool) *kafka.Writer {
 		RequiredAcks: kafka.RequiredAcks(f.options.RequiredAcks),
 		BatchSize:    1000,
 		BatchBytes:   int64(f.options.MaxMessageBytes),
+		BatchTimeout: 10 * time.Millisecond,
 		Async:        async,
 	}
 	compression := strings.ToLower(strings.TrimSpace(f.options.Compression))
