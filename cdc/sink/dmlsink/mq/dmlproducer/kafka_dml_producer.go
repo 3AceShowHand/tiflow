@@ -153,7 +153,7 @@ func (k *kafkaDMLProducer) AsyncSendMessages(
 		k.failpointCh <- errors.New("kafka sink injected error")
 		failpoint.Return(nil)
 	})
-	log.Info("send messages to the kafka producer",
+	log.Debug("send messages to the kafka producer",
 		zap.String("namespace", k.id.Namespace),
 		zap.String("changefeed", k.id.ID),
 		zap.Int("message count", len(messages)))
