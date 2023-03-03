@@ -259,6 +259,9 @@ func parseJob(v []byte, startTs, CRTs uint64) (*timodel.Job, error) {
 		return nil, errors.Trace(err)
 	}
 	log.Debug("get new DDL job", zap.String("detail", job.String()))
+	// IsDone means the DDL job owner has finished the job,
+	// but the job is not synced to the other TiDB servers.
+	// IsSynced means the DDL job is synced to the other TiDB servers.
 	if job.IsDone() || job.IsSynced() {
 		// FinishedTS is only set when the job is synced,
 		// but we can use the entry's ts here
