@@ -259,14 +259,14 @@ func parseJob(v []byte, startTs, CRTs uint64) (*timodel.Job, error) {
 		return nil, errors.Trace(err)
 	}
 	log.Debug("get new DDL job", zap.String("detail", job.String()))
-	if !job.IsDone() && !job.IsSynced() {
-		return nil, nil
+	if job.IsDone() || job.IsSynced() {
+		// FinishedTS is only set when the job is synced,
+		// but we can use the entry's ts here
+		job.StartTS = startTs
+		job.BinlogInfo.FinishedTS = CRTs
+		return job, nil
 	}
-	// FinishedTS is only set when the job is synced,
-	// but we can use the entry's ts here
-	job.StartTS = startTs
-	job.BinlogInfo.FinishedTS = CRTs
-	return job, nil
+	return nil, nil
 }
 
 func datum2Column(tableInfo *model.TableInfo, datums map[int64]types.Datum, fillWithDefaultValue bool) ([]*model.Column, []types.Datum, error) {

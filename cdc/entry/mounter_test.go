@@ -16,6 +16,7 @@ package entry
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -1266,4 +1267,45 @@ func TestNewDMRowChange(t *testing.T) {
 		require.Equal(t, "DELETE FROM `db`.`t1` WHERE (`a1`,`a3`) IN ((?,?),(?,?))", sqlGot)
 		require.Equal(t, []interface{}{1, 2, 1, 2}, argsGot)
 	}
+}
+
+func TestParseDDLJob(t *testing.T) {
+	t.Parallel()
+
+	job := &timodel.Job{
+		State:      timodel.JobStateDone,
+		BinlogInfo: &timodel.HistoryInfo{},
+	}
+	bytes, err := json.Marshal(job)
+	require.NoError(t, err)
+
+	job, err = parseJob(bytes, 0, 1)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	require.Equal(t, job.StartTS, uint64(0))
+	require.Equal(t, job.BinlogInfo.FinishedTS, uint64(1))
+
+	job = &timodel.Job{
+		State:      timodel.JobStateSynced,
+		BinlogInfo: &timodel.HistoryInfo{},
+	}
+	bytes, err = json.Marshal(job)
+	require.NoError(t, err)
+
+	job, err = parseJob(bytes, 0, 1)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	require.Equal(t, job.StartTS, uint64(0))
+	require.Equal(t, job.BinlogInfo.FinishedTS, uint64(1))
+
+	job = &timodel.Job{
+		State:      timodel.JobStateRunning,
+		BinlogInfo: &timodel.HistoryInfo{},
+	}
+	bytes, err = json.Marshal(job)
+	require.NoError(t, err)
+
+	job, err = parseJob(bytes, 0, 1)
+	require.NoError(t, err)
+	require.Nil(t, job)
 }
