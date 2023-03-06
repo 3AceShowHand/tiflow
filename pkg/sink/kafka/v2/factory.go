@@ -235,7 +235,6 @@ func (f *factory) AsyncProducer(
 				callback()
 			}
 		}
-		log.Info("messages confirmed", zap.Int("count", len(messages)))
 
 	}
 
