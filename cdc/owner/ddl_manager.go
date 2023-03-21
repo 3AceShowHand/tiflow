@@ -128,7 +128,7 @@ func newDDLManager(
 	bdrMode bool,
 ) *ddlManager {
 	log.Info("create ddl manager",
-		zap.String("namaspace", changefeedID.Namespace),
+		zap.String("namespace", changefeedID.Namespace),
 		zap.String("changefeed", changefeedID.ID),
 		zap.Uint64("startTs", startTs),
 		zap.Uint64("checkpointTs", checkpointTs),
