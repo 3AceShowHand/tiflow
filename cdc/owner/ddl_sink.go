@@ -373,8 +373,6 @@ func addSpecialComment(ddlQuery string) (string, error) {
 	restoreFlags |= format.SkipPlacementRuleForRestore
 	// force disable ttl
 	restoreFlags |= format.RestoreWithTTLEnableOff
-
-	restoreFlags |= format.RestoreStringWithoutCharset
 	if err = stms[0].Restore(format.NewRestoreCtx(restoreFlags, &sb)); err != nil {
 		return "", errors.Trace(err)
 	}
