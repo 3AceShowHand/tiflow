@@ -90,7 +90,7 @@ func init() {
 	flag.StringVar(&downstreamURIStr, "downstream-uri", "", "downstream sink uri")
 	flag.StringVar(&configFile, "config", "", "config file for changefeed")
 	flag.StringVar(&logPath, "log-file", "cdc_kafka_consumer.log", "log file path")
-	flag.StringVar(&logLevel, "log-level", "info", "log file path")
+	flag.StringVar(&logLevel, "log-level", "info", "log file level")
 	flag.StringVar(&timezone, "tz", "System", "Specify time zone of Kafka consumer")
 	flag.StringVar(&ca, "ca", "", "CA certificate path for Kafka SSL connection")
 	flag.StringVar(&cert, "cert", "", "Certificate path for Kafka SSL connection")
@@ -299,18 +299,21 @@ func main() {
 	 * Setup a new Sarama consumer group
 	 */
 	log.Info("Starting a new TiCDC consumer", zap.String("GroupID", kafkaGroupID), zap.Any("protocol", protocol))
-	consumer, err := NewConsumer(context.TODO())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	consumer, err := NewConsumer(ctx)
 	if err != nil {
 		log.Panic("Error creating consumer", zap.Error(err))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	client, err := sarama.NewConsumerGroup(kafkaAddrs, kafkaGroupID, config)
 	if err != nil {
 		log.Panic("Error creating consumer group client", zap.Error(err))
 	}
 
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -325,11 +328,12 @@ func main() {
 			if ctx.Err() != nil {
 				return
 			}
-			consumer.ready = make(chan bool)
 		}
 	}()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := consumer.Run(ctx); err != nil {
 			log.Panic("Error running consumer", zap.Error(err))
 		}
@@ -346,7 +350,6 @@ func main() {
 	case <-sigterm:
 		log.Info("terminating: via signal")
 	}
-	cancel()
 	wg.Wait()
 	if err = client.Close(); err != nil {
 		log.Panic("Error closing client", zap.Error(err))
@@ -601,6 +604,8 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 				if !ok {
 					group = newEventsGroup()
 					eventGroups[tableID] = group
+					log.Info("new table found, join the group",
+						zap.String("tableName", row.Table.Table))
 				}
 				group.Append(row)
 			case model.MessageTypeResolved:
@@ -637,9 +642,9 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 							sink.tablesCommitTsMap.Store(tableID, commitTs)
 						}
 					}
-					log.Debug("update sink resolved ts",
-						zap.Uint64("ts", ts),
-						zap.Int32("partition", partition))
+					//log.Debug("update sink resolved ts",
+					//	zap.Uint64("ts", ts),
+					//	zap.Int32("partition", partition))
 					atomic.StoreUint64(&sink.resolvedTs, ts)
 				} else {
 					log.Info("redundant sink resolved ts", zap.Uint64("ts", ts), zap.Int32("partition", partition))
