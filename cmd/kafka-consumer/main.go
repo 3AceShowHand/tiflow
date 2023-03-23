@@ -66,6 +66,7 @@ var (
 	kafkaMaxBatchSize    = math.MaxInt64
 
 	downstreamURIStr string
+	upstreamURIStr   string
 
 	protocol            config.Protocol
 	enableTiDBExtension bool
@@ -78,14 +79,11 @@ var (
 	logLevel      string
 	timezone      string
 	ca, cert, key string
+
+	configFile string
 )
 
 func init() {
-	var (
-		upstreamURIStr string
-		configFile     string
-	)
-
 	flag.StringVar(&upstreamURIStr, "upstream-uri", "", "Kafka uri")
 	flag.StringVar(&downstreamURIStr, "downstream-uri", "", "downstream sink uri")
 	flag.StringVar(&configFile, "config", "", "config file for changefeed")
@@ -349,7 +347,8 @@ func main() {
 	}()
 
 	<-consumer.ready // wait till the consumer has been set up
-	log.Info("TiCDC consumer up and running!...")
+	log.Info("TiCDC consumer up and running!...",
+		zap.String("upstream", upstreamURIStr), zap.String("downstream", downstreamURIStr))
 
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
