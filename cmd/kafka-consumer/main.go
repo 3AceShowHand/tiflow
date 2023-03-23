@@ -300,7 +300,16 @@ func main() {
 	 */
 	log.Info("Starting a new TiCDC consumer", zap.String("GroupID", kafkaGroupID), zap.Any("protocol", protocol))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	tz, err := util.GetTimezone(timezone)
+	if err != nil {
+		log.Panic("can not load timezone", zap.Error(err))
+	}
+
+	ctx := context.Background()
+	ctx = contextutil.PutTimezoneInCtx(ctx, tz)
+	ctx = contextutil.PutRoleInCtx(ctx, util.RoleKafkaConsumer)
+
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	consumer, err := NewConsumer(ctx)
@@ -389,17 +398,8 @@ type Consumer struct {
 
 // NewConsumer creates a new cdc kafka consumer
 func NewConsumer(ctx context.Context) (*Consumer, error) {
-	// TODO support filter in downstream sink
-	tz, err := util.GetTimezone(timezone)
-	if err != nil {
-		return nil, errors.Annotate(err, "can not load timezone")
-	}
-	ctx = contextutil.PutTimezoneInCtx(ctx, tz)
-
 	c := new(Consumer)
-	c.fakeTableIDGenerator = &fakeTableIDGenerator{
-		tableIDs: make(map[string]int64),
-	}
+	c.fakeTableIDGenerator = newFakeTableIDGenerator()
 	c.protocol = protocol
 	c.enableTiDBExtension = enableTiDBExtension
 
@@ -422,7 +422,6 @@ func NewConsumer(ctx context.Context) (*Consumer, error) {
 
 	c.sinks = make([]*partitionSinks, kafkaPartitionNum)
 	ctx, cancel := context.WithCancel(ctx)
-	ctx = contextutil.PutRoleInCtx(ctx, util.RoleKafkaConsumer)
 	errChan := make(chan error, 1)
 	for i := 0; i < int(kafkaPartitionNum); i++ {
 		c.sinks[i] = &partitionSinks{
@@ -591,6 +590,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 						zap.Uint64("sinkResolvedTs", sink.resolvedTs),
 						zap.Int32("partition", partition),
 						zap.Any("row", row))
+					continue
 				}
 				var partitionID int64
 				if row.Table.IsPartition {
@@ -642,9 +642,9 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 							sink.tablesCommitTsMap.Store(tableID, commitTs)
 						}
 					}
-					//log.Debug("update sink resolved ts",
-					//	zap.Uint64("ts", ts),
-					//	zap.Int32("partition", partition))
+					log.Debug("update sink resolved ts",
+						zap.Uint64("ts", ts),
+						zap.Int32("partition", partition))
 					atomic.StoreUint64(&sink.resolvedTs, ts)
 				} else {
 					log.Info("redundant sink resolved ts", zap.Uint64("ts", ts), zap.Int32("partition", partition))
@@ -827,6 +827,13 @@ type fakeTableIDGenerator struct {
 	tableIDs       map[string]int64
 	currentTableID int64
 	mu             sync.Mutex
+}
+
+func newFakeTableIDGenerator() *fakeTableIDGenerator {
+	return &fakeTableIDGenerator{
+		tableIDs:       make(map[string]int64),
+		currentTableID: 0,
+	}
 }
 
 func (g *fakeTableIDGenerator) generateFakeTableID(schema, table string, partition int64) int64 {
