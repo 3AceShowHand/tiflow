@@ -25,6 +25,7 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/logutil"
 	"github.com/pingcap/tiflow/pkg/security"
 	pkafka "github.com/pingcap/tiflow/pkg/sink/kafka"
 	"github.com/pingcap/tiflow/pkg/util"
@@ -86,6 +87,8 @@ func newTransport(o *pkafka.Options) (*kafka.Transport, error) {
 		TLS:         tlsConfig,
 		DialTimeout: o.DialTimeout,
 		ClientID:    o.ClientID,
+		// default to 6s, set this to 3s to make it more robust to randomly brokers layout change.
+		MetadataTTL: 3 * time.Second,
 	}, nil
 }
 
@@ -164,12 +167,23 @@ func (f *factory) newWriter(async bool) *kafka.Writer {
 		WriteTimeout: f.options.WriteTimeout,
 		// For kafka cluster with a bad network condition,
 		// do not waste too much time to prevent long time blocking.
-		MaxAttempts:     2,
-		WriteBackoffMin: 10 * time.Millisecond,
+		MaxAttempts:     3,
+		WriteBackoffMin: 50 * time.Millisecond,
 		RequiredAcks:    kafka.RequiredAcks(f.options.RequiredAcks),
 		BatchBytes:      int64(f.options.MaxMessageBytes),
 		Async:           async,
+
+		Logger: logutil.KafkaGoLogger,
 	}
+
+	// LoggerFunc is a bridge between Logger and any third party logger
+	// Usage:
+	//   l := NewLogger() // some logger
+	//   r := kafka.NewReader(kafka.ReaderConfig{
+	//     Logger:      kafka.LoggerFunc(l.Infof),
+	//     ErrorLogger: kafka.LoggerFunc(l.Errorf),
+	//   })
+
 	f.writer = w
 	compression := strings.ToLower(strings.TrimSpace(f.options.Compression))
 	switch compression {

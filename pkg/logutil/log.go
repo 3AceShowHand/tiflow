@@ -26,13 +26,19 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
+	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/grpclog"
 )
 
-// globalP is the global ZapProperties in log
-var globalP *log.ZapProperties
+var (
+	// globalP is the global ZapProperties in log
+	globalP *log.ZapProperties
+
+	// KafkaGoLogger is used by the kafka-go sink.
+	KafkaGoLogger kafka.Logger
+)
 
 const (
 	defaultLogLevel   = "info"
@@ -89,10 +95,11 @@ func SetLogLevel(level string) error {
 
 // loggerOp is the op for logger control
 type loggerOp struct {
-	isInitGRPCLogger   bool
-	isInitSaramaLogger bool
-	isInitMySQLLogger  bool
-	output             zapcore.WriteSyncer
+	isInitGRPCLogger    bool
+	isInitSaramaLogger  bool
+	isInitMySQLLogger   bool
+	isInitKafkaGoLogger bool
+	output              zapcore.WriteSyncer
 }
 
 func (op *loggerOp) applyOpts(opts []LoggerOpt) {
@@ -122,6 +129,13 @@ func WithInitSaramaLogger() LoggerOpt {
 func WithInitMySQLLogger() LoggerOpt {
 	return func(op *loggerOp) {
 		op.isInitMySQLLogger = true
+	}
+}
+
+// WithInitKafkaGoLogger enables kafka-go logger initialization when initializes global logger
+func WithInitKafkaGoLogger() LoggerOpt {
+	return func(op *loggerOp) {
+		op.isInitKafkaGoLogger = true
 	}
 }
 
@@ -196,6 +210,12 @@ func initOptionalComponent(op *loggerOp, cfg *Config) error {
 		}
 	}
 
+	if op.isInitKafkaGoLogger {
+		if err := initKafkaGoLogger(level); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -231,6 +251,20 @@ func initSaramaLogger(level zapcore.Level) error {
 		}
 		sarama.Logger = logger
 	}
+	return nil
+}
+
+// initGRPCLogger hacks logger used in kafka-go lib
+func initKafkaGoLogger(level zapcore.Level) error {
+	// only available less than info level
+	if !zapcore.InfoLevel.Enabled(level) {
+		logger, err := zap.NewStdLogAt(log.L().With(zap.String("component", "kafka-go")), level)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		KafkaGoLogger = logger
+	}
+
 	return nil
 }
 
