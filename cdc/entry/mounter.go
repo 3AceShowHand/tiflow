@@ -348,17 +348,22 @@ func datum2Column(
 				zap.String("table", tableInfo.Name.O), zap.String("column", colInfo.Name.O))
 			continue
 		}
+
 		colName := colInfo.Name.O
-		colDatums, exist := datums[colInfo.ID]
-		var colValue interface{}
+		columnID := colInfo.ID
+		colDatums, exist := datums[columnID]
 		if !exist && !fillWithDefaultValue {
 			log.Debug("column value is not found",
 				zap.String("table", tableInfo.Name.O), zap.String("column", colName))
 			continue
 		}
-		var err error
-		var warn string
-		var size int
+
+		var (
+			err      error
+			warn     string
+			size     int
+			colValue interface{}
+		)
 		if exist {
 			colValue, size, warn, err = formatColVal(colDatums, colInfo)
 		} else if fillWithDefaultValue {
@@ -372,8 +377,10 @@ func datum2Column(
 		}
 		defaultValue := getDDLDefaultDefinition(colInfo)
 		colSize += size
-		rawCols[tableInfo.RowColumnsOffset[colInfo.ID]] = colDatums
-		cols[tableInfo.RowColumnsOffset[colInfo.ID]] = &model.Column{
+
+		offset := tableInfo.RowColumnsOffset[colInfo.ID]
+		rawCols[offset] = colDatums
+		cols[offset] = &model.Column{
 			Name:    colName,
 			Type:    colInfo.GetType(),
 			Charset: colInfo.GetCharset(),
@@ -383,7 +390,7 @@ func datum2Column(
 			// ApproximateBytes = column data size + column struct size
 			ApproximateBytes: colSize + sizeOfEmptyColumn,
 		}
-		columnIDs[tableInfo.RowColumnsOffset[colInfo.ID]] = colInfo.ID
+		columnIDs[offset] = colInfo.ID
 	}
 	return cols, rawCols, columnIDs, nil
 }
