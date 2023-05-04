@@ -187,27 +187,30 @@ func init() {
 
 	s = upstreamURI.Query().Get("enable-tidb-extension")
 	if s != "" {
-		b, err := strconv.ParseBool(s)
+		enableTiDBExtension, err = strconv.ParseBool(s)
 		if err != nil {
 			log.Panic("invalid enable-tidb-extension of upstream-uri")
 		}
-		if protocol != config.ProtocolCanalJSON && b {
-			log.Panic("enable-tidb-extension only work with canal-json")
+		if enableTiDBExtension {
+			if protocol != config.ProtocolCanalJSON || protocol != config.ProtocolAvro {
+				log.Panic("enable-tidb-extension only work with canal-json, and avro protocol",
+					zap.Any("protocol", protocol))
+			}
 		}
-
-		enableTiDBExtension = b
 	}
 
 	s = upstreamURI.Query().Get("enable-row-checksum")
 	if s != "" {
-		b, err := strconv.ParseBool(s)
+		enableRowChecksum, err = strconv.ParseBool(s)
 		if err != nil {
 			log.Panic("invalid enable-row-checksum of upstream-uri")
 		}
-		if protocol != config.ProtocolAvro && b {
-			log.Panic("enable-row-checksum only work with avro")
+		if enableRowChecksum {
+			if protocol != config.ProtocolAvro {
+				log.Panic("enable-row-checksum only work with avro",
+					zap.Any("protocol", protocol))
+			}
 		}
-		enableRowChecksum = b
 	}
 
 	if configFile != "" {
