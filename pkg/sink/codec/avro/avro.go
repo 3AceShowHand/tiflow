@@ -651,7 +651,7 @@ func rowToAvroData(
 		ret[tidbPhysicalTime] = oracle.ExtractPhysical(commitTs)
 	}
 
-	log.Debug("rowToAvroData", zap.Any("data", ret))
+	log.Info("rowToAvroData", zap.Any("data", ret))
 	return ret, nil
 }
 

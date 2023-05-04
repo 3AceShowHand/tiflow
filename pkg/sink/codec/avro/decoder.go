@@ -87,7 +87,7 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		return nil, errors.Trace(err)
 	}
 
-	log.Info("extract the valueMap", zap.Any("valueMap", valueMap))
+	log.Info("value map", zap.Any("valueMap", valueMap))
 
 	schema := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(rawSchema), &schema); err != nil {
@@ -132,8 +132,6 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		if !ok {
 			return nil, errors.New("value not found")
 		}
-
-		log.Info("extract the value", zap.Any("value", value), zap.Any("colName", colName))
 
 		col := &model.Column{
 			Name:  colName,
