@@ -87,6 +87,8 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		return nil, errors.Trace(err)
 	}
 
+	log.Info("extract the valueMap", zap.Any("valueMap", valueMap))
+
 	schema := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(rawSchema), &schema); err != nil {
 		return nil, errors.Trace(err)
@@ -98,8 +100,8 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 	}
 
 	columns := make([]*model.Column, 0, len(valueMap))
-	for _, value := range fields {
-		field, ok := value.(map[string]interface{})
+	for _, item := range fields {
+		field, ok := item.(map[string]interface{})
 		if !ok {
 			return nil, errors.New("schema field should be a map")
 		}
@@ -125,11 +127,19 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		if _, ok := key[colName]; ok {
 			flag.SetIsHandleKey()
 		}
+
+		value, ok := valueMap[colName]
+		if !ok {
+			return nil, errors.New("value not found")
+		}
+
+		log.Info("extract the value", zap.Any("value", value), zap.Any("colName", colName))
+
 		col := &model.Column{
 			Name:  colName,
 			Type:  mysqlType,
 			Flag:  flag,
-			Value: valueMap[colName],
+			Value: value,
 		}
 		columns = append(columns, col)
 	}
