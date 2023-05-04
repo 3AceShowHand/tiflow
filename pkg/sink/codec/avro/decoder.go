@@ -129,7 +129,7 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 			Name:  colName,
 			Type:  mysqlType,
 			Flag:  flag,
-			Value: value,
+			Value: valueMap[colName],
 		}
 		columns = append(columns, col)
 	}
@@ -303,6 +303,7 @@ func verifyChecksum(columns []*model.Column, expected uint64) error {
 		info := &timodel.ColumnInfo{
 			FieldType: *types.NewFieldType(col.Type),
 		}
+
 		data := types.NewDatum(col.Value)
 		calculator.Cols = append(calculator.Cols, rowcodec.ColData{
 			ColumnInfo: info,

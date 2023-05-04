@@ -304,7 +304,8 @@ func (m *SchemaManager) Lookup(
 		log.Error("Creating Avro codec failed", zap.Error(err))
 		return nil, cerror.WrapError(cerror.ErrAvroSchemaAPIError, err)
 	}
-	cacheEntry.schemaID = jsonResp.SchemaID
+	// schemaID is not returned from the response, set it explicitly.
+	cacheEntry.schemaID = schemaID
 
 	m.cacheRWLock.Lock()
 	m.cache[key] = cacheEntry
