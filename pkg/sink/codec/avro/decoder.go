@@ -321,5 +321,8 @@ func verifyChecksum(columns []*model.Column, expected uint64) error {
 		return errors.New("checksum mismatch")
 	}
 
+	log.Info("checksum matched", zap.Uint64("expected", expected),
+		zap.Uint32("actual", checksum))
+
 	return nil
 }
