@@ -87,8 +87,6 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		return nil, errors.Trace(err)
 	}
 
-	log.Info("value map", zap.Any("valueMap", valueMap))
-
 	schema := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(rawSchema), &schema); err != nil {
 		return nil, errors.Trace(err)
@@ -134,7 +132,7 @@ func (d *decoder) NextRowChangedEvent() (*model.RowChangedEvent, error) {
 		}
 
 		switch value.(type) {
-		// for nullable columns, the value is encoded as a map,
+		// for nullable columns, the value is encoded as a map with one pair.
 		// key is the encoded type, value is the encoded value, only care about the value here.
 		case map[string]interface{}:
 			for _, v := range value.(map[string]interface{}) {

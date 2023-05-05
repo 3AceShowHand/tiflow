@@ -298,15 +298,16 @@ func (m *SchemaManager) Lookup(
 		return nil, cerror.WrapError(cerror.ErrAvroSchemaAPIError, err)
 	}
 
-	cacheEntry := new(schemaCacheEntry)
-	cacheEntry.codec, err = goavro.NewCodec(jsonResp.Schema)
+	codec, err := goavro.NewCodec(jsonResp.Schema)
 	if err != nil {
 		log.Error("Creating Avro codec failed", zap.Error(err))
 		return nil, cerror.WrapError(cerror.ErrAvroSchemaAPIError, err)
 	}
-	// schemaID is not returned from the response, set it explicitly.
-	cacheEntry.schemaID = schemaID
 
+	cacheEntry := &schemaCacheEntry{
+		schemaID: schemaID,
+		codec:    codec,
+	}
 	m.cacheRWLock.Lock()
 	m.cache[key] = cacheEntry
 	m.cacheRWLock.Unlock()
