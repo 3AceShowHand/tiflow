@@ -481,8 +481,7 @@ func (m *mounter) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, d
 		matched     bool
 		err         error
 
-		corrupted       bool
-		checksumVersion int
+		checksum *model.Checksum
 	)
 
 	// Decode previous columns.
@@ -504,7 +503,7 @@ func (m *mounter) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, d
 			return nil, rawRow, errors.Trace(err)
 		}
 
-		preChecksum, checksumVersion, matched, err = m.verifyChecksum(columnInfos, preRawCols, true)
+		checksum, version, matched, err := m.verifyChecksum(columnInfos, preRawCols, true)
 		if err != nil {
 			return nil, rawRow, errors.Trace(err)
 		}
@@ -586,10 +585,7 @@ func (m *mounter) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, d
 		Columns:    cols,
 		PreColumns: preCols,
 
-		Checksum:        checksum,
-		PreChecksum:     preChecksum,
-		Corrupted:       corrupted,
-		ChecksumVersion: checksumVersion,
+		Checksum: checksum,
 
 		IndexColumns:        tableInfo.IndexColumnsOffset,
 		ApproximateDataSize: dataSize,

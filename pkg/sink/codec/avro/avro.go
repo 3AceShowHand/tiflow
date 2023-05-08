@@ -289,9 +289,11 @@ func (a *BatchEncoder) avroEncode(
 	}
 
 	if enableRowLevelChecksum && enableTiDBExtension {
-		native[tidbRowLevelChecksum] = strconv.FormatUint(uint64(e.Checksum), 10)
-		native[tidbCorrupted] = e.Corrupted
-		native[tidbChecksumVersion] = e.ChecksumVersion
+		if e.Checksum != nil {
+			native[tidbRowLevelChecksum] = strconv.FormatUint(uint64(e.Checksum.Current), 10)
+			native[tidbCorrupted] = e.Checksum.Corrupted
+			native[tidbChecksumVersion] = e.Checksum.Version
+		}
 	}
 
 	bin, err := avroCodec.BinaryFromNative(nil, native)
