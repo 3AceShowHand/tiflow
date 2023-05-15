@@ -22,7 +22,6 @@ import (
 	timodel "github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/pingcap/tiflow/pkg/util"
@@ -46,51 +45,38 @@ func TestDecodeEvent(t *testing.T) {
 	require.NotNil(t, encoder)
 
 	cols := make([]*model.Column, 0)
-	colInfos := make([]rowcodec.ColInfo, 0)
 
 	cols = append(
 		cols,
 		&model.Column{
-			Name:  "id",
-			Value: int64(1),
-			Type:  mysql.TypeLong,
-			Flag:  model.HandleKeyFlag,
-		},
-	)
-	colInfos = append(
-		colInfos,
-		rowcodec.ColInfo{
-			ID:            1000,
-			IsPKHandle:    true,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeLong),
+			ID:         1000,
+			Name:       "id",
+			Value:      int64(1),
+			Type:       mysql.TypeLong,
+			Flag:       model.HandleKeyFlag,
+			IsPkHandle: true,
+			FieldType:  types.NewFieldType(mysql.TypeLong),
 		},
 	)
 
 	for _, v := range avroTestColumns {
 		cols = append(cols, &v.col)
-		colInfos = append(colInfos, v.colInfo)
 
 		colNew := v.col
 		colNew.Name = colNew.Name + "nullable"
 		colNew.Value = nil
 		colNew.Flag.SetIsNullable()
-
-		colInfoNew := v.colInfo
-		colInfoNew.ID += int64(len(avroTestColumns))
+		colNew.ID += int64(len(avroTestColumns))
 
 		cols = append(cols, &colNew)
-		colInfos = append(colInfos, colInfoNew)
 	}
 
 	input := &avroEncodeInput{
 		cols,
-		colInfos,
 	}
 
 	rand.New(rand.NewSource(time.Now().Unix())).Shuffle(len(input.columns), func(i, j int) {
 		input.columns[i], input.columns[j] = input.columns[j], input.columns[i]
-		input.colInfos[i], input.colInfos[j] = input.colInfos[j], input.colInfos[i]
 	})
 
 	// insert event
@@ -106,8 +92,7 @@ func TestDecodeEvent(t *testing.T) {
 				Table:  "avro",
 			},
 		},
-		Columns:  input.columns,
-		ColInfos: input.colInfos,
+		Columns: input.columns,
 	}
 
 	topic := "avro-test-topic"

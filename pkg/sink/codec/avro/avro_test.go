@@ -993,9 +993,11 @@ func TestArvoAppendRowChangedEventWithCallback(t *testing.T) {
 		Table:     &model.TableName{Schema: "a", Table: "b"},
 		TableInfo: &model.TableInfo{TableName: model.TableName{Schema: "a", Table: "b"}},
 		Columns: []*model.Column{{
-			Name:  "col1",
-			Type:  mysql.TypeVarchar,
-			Value: []byte("aa"),
+			ID:        1000,
+			Name:      "col1",
+			Type:      mysql.TypeVarchar,
+			Value:     []byte("aa"),
+			FieldType: *types.NewFieldType(mysql.TypeVarchar),
 		}},
 		ColInfos: []rowcodec.ColInfo{{
 			ID:            1000,

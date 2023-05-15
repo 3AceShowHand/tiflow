@@ -18,7 +18,6 @@ import (
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/stretchr/testify/require"
@@ -33,28 +32,22 @@ func TestCSVBatchCodec(t *testing.T) {
 					CommitTs: 1,
 					Table:    &model.TableName{Schema: "test", Table: "table1"},
 					Columns: []*model.Column{{
-						Name:  "tiny",
-						Value: int64(1), Type: mysql.TypeTiny,
-					}},
-					ColInfos: []rowcodec.ColInfo{{
-						ID:            1,
-						IsPKHandle:    false,
-						VirtualGenCol: false,
-						Ft:            types.NewFieldType(mysql.TypeTiny),
+						ID:        1,
+						Name:      "tiny",
+						Value:     int64(1),
+						Type:      mysql.TypeTiny,
+						FieldType: types.NewFieldType(mysql.TypeTiny),
 					}},
 				},
 				{
 					CommitTs: 2,
 					Table:    &model.TableName{Schema: "test", Table: "table1"},
 					Columns: []*model.Column{{
-						Name:  "tiny",
-						Value: int64(2), Type: mysql.TypeTiny,
-					}},
-					ColInfos: []rowcodec.ColInfo{{
-						ID:            1,
-						IsPKHandle:    false,
-						VirtualGenCol: false,
-						Ft:            types.NewFieldType(mysql.TypeTiny),
+						ID:        1,
+						Name:      "tiny",
+						Value:     int64(2),
+						Type:      mysql.TypeTiny,
+						FieldType: types.NewFieldType(mysql.TypeTiny),
 					}},
 				},
 			},
@@ -99,12 +92,12 @@ func TestCSVAppendRowChangedEventWithCallback(t *testing.T) {
 	row := &model.RowChangedEvent{
 		CommitTs: 1,
 		Table:    &model.TableName{Schema: "test", Table: "table1"},
-		Columns:  []*model.Column{{Name: "tiny", Value: int64(1), Type: mysql.TypeTiny}},
-		ColInfos: []rowcodec.ColInfo{{
-			ID:            1,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeTiny),
+		Columns: []*model.Column{{
+			ID:        1,
+			Name:      "tiny",
+			Value:     int64(1),
+			Type:      mysql.TypeTiny,
+			FieldType: types.NewFieldType(mysql.TypeTiny),
 		}},
 	}
 

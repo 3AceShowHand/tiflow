@@ -28,7 +28,6 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/contextutil"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/config"
@@ -65,12 +64,11 @@ type Options struct {
 }
 
 type avroEncodeInput struct {
-	columns  []*model.Column
-	colInfos []rowcodec.ColInfo
+	columns []*model.Column
 }
 
 func (r *avroEncodeInput) Less(i, j int) bool {
-	return r.colInfos[i].ID < r.colInfos[j].ID
+	return r.columns[i].ID < r.columns[j].ID
 }
 
 func (r *avroEncodeInput) Len() int {
@@ -78,7 +76,6 @@ func (r *avroEncodeInput) Len() int {
 }
 
 func (r *avroEncodeInput) Swap(i, j int) {
-	r.colInfos[i], r.colInfos[j] = r.colInfos[j], r.colInfos[i]
 	r.columns[i], r.columns[j] = r.columns[j], r.columns[i]
 }
 
@@ -209,25 +206,22 @@ func (a *BatchEncoder) avroEncode(
 		input *avroEncodeInput
 
 		cols                   []*model.Column
-		colInfos               []rowcodec.ColInfo
 		enableTiDBExtension    bool
 		enableRowLevelChecksum bool
 		schemaManager          *SchemaManager
 		operation              string
 	)
 	if isKey {
-		cols, colInfos = e.HandleKeyColInfos()
+		cols = e.HandleKeyColInfos()
 		input = &avroEncodeInput{
-			columns:  cols,
-			colInfos: colInfos,
+			columns: cols,
 		}
 		enableTiDBExtension = false
 		enableRowLevelChecksum = false
 		schemaManager = a.keySchemaManager
 	} else {
 		input = &avroEncodeInput{
-			columns:  e.Columns,
-			colInfos: e.ColInfos,
+			columns: e.Columns,
 		}
 
 		enableTiDBExtension = a.EnableTiDBExtension
@@ -509,10 +503,10 @@ func rowToAvroSchema(
 		Fields:    nil,
 	}
 
-	for i, col := range input.columns {
+	for _, col := range input.columns {
 		avroType, err := columnToAvroSchema(
 			col,
-			input.colInfos[i].Ft,
+			col.FieldType,
 			decimalHandlingMode,
 			bigintUnsignedHandlingMode,
 		)
@@ -526,7 +520,7 @@ func rowToAvroSchema(
 		copy.Value = copy.Default
 		defaultValue, _, err := columnToAvroData(
 			&copy,
-			input.colInfos[i].Ft,
+			copy.FieldType,
 			decimalHandlingMode,
 			bigintUnsignedHandlingMode,
 		)
@@ -623,13 +617,13 @@ func rowToAvroData(
 	bigintUnsignedHandlingMode string,
 ) (map[string]interface{}, error) {
 	ret := make(map[string]interface{}, len(input.columns))
-	for i, col := range input.columns {
+	for _, col := range input.columns {
 		if col == nil {
 			continue
 		}
 		data, str, err := columnToAvroData(
 			col,
-			input.colInfos[i].Ft,
+			col.FieldType,
 			decimalHandlingMode,
 			bigintUnsignedHandlingMode,
 		)

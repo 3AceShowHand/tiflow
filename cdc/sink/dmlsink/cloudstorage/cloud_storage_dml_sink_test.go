@@ -25,7 +25,6 @@ import (
 	timodel "github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/dmlsink"
 	"github.com/pingcap/tiflow/cdc/sink/tablesink/state"
@@ -96,12 +95,8 @@ func generateTxnEvents(
 				Table:     &model.TableName{Schema: "test", Table: "table1"},
 				TableInfo: &model.TableInfo{TableName: model.TableName{Schema: "test", Table: "table1"}, Version: 33},
 				Columns: []*model.Column{
-					{Name: "c1", Value: i*batch + j},
-					{Name: "c2", Value: "hello world"},
-				},
-				ColInfos: []rowcodec.ColInfo{
-					{ID: 1, Ft: types.NewFieldType(mysql.TypeLong)},
-					{ID: 2, Ft: types.NewFieldType(mysql.TypeVarchar)},
+					{Name: "c1", Value: i*batch + j, ID: 1, FieldType: *types.NewFieldType(mysql.TypeLong)},
+					{Name: "c2", Value: "hello world", ID: 2, FieldType: *types.NewFieldType(mysql.TypeVarchar)},
 				},
 			}
 			txn.Event.Rows = append(txn.Event.Rows, row)

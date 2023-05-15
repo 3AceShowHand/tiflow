@@ -15,7 +15,6 @@ package v1
 
 import (
 	timodel "github.com/pingcap/tidb/parser/model"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 )
 
@@ -56,9 +55,8 @@ type RowChangedEvent struct {
 
 	RowID int64 `json:"row-id" msg:"-"` // Deprecated. It is empty when the RowID comes from clustered index table.
 
-	Table     *TableName         `json:"table" msg:"table"`
-	ColInfos  []rowcodec.ColInfo `json:"column-infos" msg:"-"`
-	TableInfo *model.TableInfo   `json:"-" msg:"-"`
+	Table     *TableName       `json:"table" msg:"table"`
+	TableInfo *model.TableInfo `json:"-" msg:"-"`
 
 	Columns      []*Column `json:"columns" msg:"-"`
 	PreColumns   []*Column `json:"pre-columns" msg:"-"`

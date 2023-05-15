@@ -22,7 +22,6 @@ import (
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/dmlsink"
 	"github.com/pingcap/tiflow/cdc/sink/util"
@@ -93,21 +92,17 @@ func TestDeframenter(t *testing.T) {
 						TableID: 100,
 					},
 					Columns: []*model.Column{
-						{Name: "c1", Value: j + 1},
-						{Name: "c2", Value: "hello world"},
-					},
-					ColInfos: []rowcodec.ColInfo{
 						{
-							ID:            1,
-							IsPKHandle:    false,
-							VirtualGenCol: false,
-							Ft:            types.NewFieldType(mysql.TypeLong),
+							Name:      "c1",
+							Value:     j + 1,
+							ID:        1,
+							FieldType: *types.NewFieldType(mysql.TypeLong),
 						},
 						{
-							ID:            2,
-							IsPKHandle:    false,
-							VirtualGenCol: false,
-							Ft:            types.NewFieldType(mysql.TypeString),
+							ID:        2,
+							Name:      "c2",
+							Value:     "hello world",
+							FieldType: *types.NewFieldType(mysql.TypeString),
 						},
 					},
 				}

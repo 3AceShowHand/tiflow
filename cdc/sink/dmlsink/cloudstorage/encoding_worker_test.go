@@ -21,7 +21,6 @@ import (
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/dmlsink"
 	"github.com/pingcap/tiflow/cdc/sink/util"
@@ -64,20 +63,6 @@ func TestEncodeEvents(t *testing.T) {
 		return defragmenter.run(egCtx)
 	})
 
-	colInfos := []rowcodec.ColInfo{
-		{
-			ID:            1,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeLong),
-		},
-		{
-			ID:            2,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeString),
-		},
-	}
 	err := encodingWorker.encodeEvents(eventFragment{
 		versionedTable: cloudstorage.VersionedTableName{
 			TableNameWithPhysicTableID: model.TableName{
@@ -104,10 +89,19 @@ func TestEncodeEvents(t *testing.T) {
 							TableID: 100,
 						},
 						Columns: []*model.Column{
-							{Name: "c1", Value: 100},
-							{Name: "c2", Value: "hello world"},
+							{
+								ID:        1,
+								Name:      "c1",
+								Value:     100,
+								FieldType: *types.NewFieldType(mysql.TypeLong),
+							},
+							{
+								ID:        2,
+								Name:      "c2",
+								Value:     "hello world",
+								FieldType: *types.NewFieldType(mysql.TypeString),
+							},
 						},
-						ColInfos: colInfos,
 					},
 					{
 						Table: &model.TableName{
@@ -116,10 +110,19 @@ func TestEncodeEvents(t *testing.T) {
 							TableID: 100,
 						},
 						Columns: []*model.Column{
-							{Name: "c1", Value: 200},
-							{Name: "c2", Value: "你好，世界"},
+							{
+								ID:        1,
+								Name:      "c1",
+								Value:     200,
+								FieldType: *types.NewFieldType(mysql.TypeLong),
+							},
+							{
+								ID:        2,
+								Name:      "c2",
+								Value:     "你好，世界",
+								FieldType: *types.NewFieldType(mysql.TypeString),
+							},
 						},
-						ColInfos: colInfos,
 					},
 				},
 			},
@@ -163,12 +166,18 @@ func TestEncodingWorkerRun(t *testing.T) {
 					TableID: 100,
 				},
 				Columns: []*model.Column{
-					{Name: "c1", Value: 100},
-					{Name: "c2", Value: "hello world"},
-				},
-				ColInfos: []rowcodec.ColInfo{
-					{ID: 1, Ft: types.NewFieldType(mysql.TypeLong)},
-					{ID: 2, Ft: types.NewFieldType(mysql.TypeVarchar)},
+					{
+						ID:        1,
+						Name:      "c1",
+						Value:     100,
+						FieldType: *types.NewFieldType(mysql.TypeLong),
+					},
+					{
+						ID:        2,
+						Name:      "c2",
+						Value:     "hello world",
+						FieldType: *types.NewFieldType(mysql.TypeVarchar),
+					},
 				},
 			},
 		},

@@ -22,142 +22,120 @@ import (
 	timodel "github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/stretchr/testify/require"
 )
 
 type csvTestColumnTuple struct {
-	col     model.Column
-	colInfo rowcodec.ColInfo
-	want    interface{}
+	col  model.Column
+	want interface{}
 }
 
 var csvTestColumnsGroup = [][]*csvTestColumnTuple{
 	{
 		{
-			model.Column{Name: "tiny", Value: int64(1), Type: mysql.TypeTiny},
-			rowcodec.ColInfo{
-				ID:            1,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeTiny),
-			},
-			int64(1),
-		},
-		{
-			model.Column{Name: "short", Value: int64(1), Type: mysql.TypeShort},
-			rowcodec.ColInfo{
-				ID:            2,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeShort),
-			},
-			int64(1),
-		},
-		{
-			model.Column{Name: "int24", Value: int64(1), Type: mysql.TypeInt24},
-			rowcodec.ColInfo{
-				ID:            3,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeInt24),
-			},
-			int64(1),
-		},
-		{
-			model.Column{Name: "long", Value: int64(1), Type: mysql.TypeLong},
-			rowcodec.ColInfo{
-				ID:            4,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeLong),
-			},
-			int64(1),
-		},
-		{
-			model.Column{Name: "longlong", Value: int64(1), Type: mysql.TypeLonglong},
-			rowcodec.ColInfo{
-				ID:            5,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeLonglong),
+			model.Column{
+				ID:        1,
+				Name:      "tiny",
+				Value:     int64(1),
+				Type:      mysql.TypeTiny,
+				FieldType: types.NewFieldType(mysql.TypeTiny),
 			},
 			int64(1),
 		},
 		{
 			model.Column{
-				Name:  "tinyunsigned",
-				Value: uint64(1),
-				Type:  mysql.TypeTiny,
-				Flag:  model.UnsignedFlag,
+				ID:        2,
+				Name:      "short",
+				Value:     int64(1),
+				Type:      mysql.TypeShort,
+				FieldType: types.NewFieldType(mysql.TypeShort),
 			},
-			rowcodec.ColInfo{
-				ID:            6,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setFlag(types.NewFieldType(mysql.TypeTiny), uint(model.UnsignedFlag)),
+			int64(1),
+		},
+		{
+			model.Column{
+				ID:        3,
+				Name:      "int24",
+				Value:     int64(1),
+				Type:      mysql.TypeInt24,
+				FieldType: types.NewFieldType(mysql.TypeInt24),
+			},
+			int64(1),
+		},
+		{
+			model.Column{
+				ID:        4,
+				Name:      "long",
+				Value:     int64(1),
+				Type:      mysql.TypeLong,
+				FieldType: types.NewFieldType(mysql.TypeLong),
+			},
+			int64(1),
+		},
+		{
+			model.Column{
+				ID:        5,
+				Name:      "longlong",
+				Value:     int64(1),
+				Type:      mysql.TypeLonglong,
+				FieldType: types.NewFieldType(mysql.TypeLonglong),
+			},
+			int64(1),
+		},
+		{
+			model.Column{
+				ID:        6,
+				Name:      "tinyunsigned",
+				Value:     uint64(1),
+				Type:      mysql.TypeTiny,
+				Flag:      model.UnsignedFlag,
+				FieldType: setFlag(types.NewFieldType(mysql.TypeTiny), uint(model.UnsignedFlag)),
 			},
 			uint64(1),
 		},
 		{
 			model.Column{
-				Name:  "shortunsigned",
-				Value: uint64(1),
-				Type:  mysql.TypeShort,
-				Flag:  model.UnsignedFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            7,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setFlag(types.NewFieldType(mysql.TypeShort), uint(model.UnsignedFlag)),
+				ID:        7,
+				Name:      "shortunsigned",
+				Value:     uint64(1),
+				Type:      mysql.TypeShort,
+				Flag:      model.UnsignedFlag,
+				FieldType: setFlag(types.NewFieldType(mysql.TypeShort), uint(model.UnsignedFlag)),
 			},
 			uint64(1),
 		},
 		{
 			model.Column{
-				Name:  "int24unsigned",
-				Value: uint64(1),
-				Type:  mysql.TypeInt24,
-				Flag:  model.UnsignedFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            8,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setFlag(types.NewFieldType(mysql.TypeInt24), uint(model.UnsignedFlag)),
+				ID:        8,
+				Name:      "int24unsigned",
+				Value:     uint64(1),
+				Type:      mysql.TypeInt24,
+				Flag:      model.UnsignedFlag,
+				FieldType: setFlag(types.NewFieldType(mysql.TypeInt24), uint(model.UnsignedFlag)),
 			},
 			uint64(1),
 		},
 		{
 			model.Column{
-				Name:  "longunsigned",
-				Value: uint64(1),
-				Type:  mysql.TypeLong,
-				Flag:  model.UnsignedFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            9,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setFlag(types.NewFieldType(mysql.TypeLong), uint(model.UnsignedFlag)),
+				ID:        9,
+				Name:      "longunsigned",
+				Value:     uint64(1),
+				Type:      mysql.TypeLong,
+				Flag:      model.UnsignedFlag,
+				FieldType: setFlag(types.NewFieldType(mysql.TypeLong), uint(model.UnsignedFlag)),
 			},
 			uint64(1),
 		},
 		{
 			model.Column{
+				ID:    10,
 				Name:  "longlongunsigned",
 				Value: uint64(1),
 				Type:  mysql.TypeLonglong,
 				Flag:  model.UnsignedFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            10,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft: setFlag(
+				FieldType: setFlag(
 					types.NewFieldType(mysql.TypeLonglong),
 					uint(model.UnsignedFlag),
 				),
@@ -167,128 +145,128 @@ var csvTestColumnsGroup = [][]*csvTestColumnTuple{
 	},
 	{
 		{
-			model.Column{Name: "float", Value: float64(3.14), Type: mysql.TypeFloat},
-			rowcodec.ColInfo{
-				ID:            11,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeFloat),
+			model.Column{
+				ID:        11,
+				Name:      "float",
+				Value:     float64(3.14),
+				Type:      mysql.TypeFloat,
+				FieldType: types.NewFieldType(mysql.TypeFloat),
 			},
 			float64(3.14),
 		},
 		{
-			model.Column{Name: "double", Value: float64(3.14), Type: mysql.TypeDouble},
-			rowcodec.ColInfo{
-				ID:            12,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeDouble),
+			model.Column{
+				ID:        12,
+				Name:      "double",
+				Value:     float64(3.14),
+				Type:      mysql.TypeDouble,
+				FieldType: types.NewFieldType(mysql.TypeDouble),
 			},
 			float64(3.14),
 		},
 	},
 	{
 		{
-			model.Column{Name: "bit", Value: uint64(683), Type: mysql.TypeBit},
-			rowcodec.ColInfo{
-				ID:            13,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeBit),
+			model.Column{
+				ID:        13,
+				Name:      "bit",
+				Value:     uint64(683),
+				Type:      mysql.TypeBit,
+				FieldType: types.NewFieldType(mysql.TypeBit),
 			},
 			uint64(683),
 		},
 	},
 	{
 		{
-			model.Column{Name: "decimal", Value: "129012.1230000", Type: mysql.TypeNewDecimal},
-			rowcodec.ColInfo{
-				ID:            14,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeNewDecimal),
+			model.Column{
+				ID:        14,
+				Name:      "decimal",
+				Value:     "129012.1230000",
+				Type:      mysql.TypeNewDecimal,
+				FieldType: types.NewFieldType(mysql.TypeNewDecimal),
 			},
 			"129012.1230000",
 		},
 	},
 	{
 		{
-			model.Column{Name: "tinytext", Value: []byte("hello world"), Type: mysql.TypeTinyBlob},
-			rowcodec.ColInfo{
-				ID:            15,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeBlob),
+			model.Column{
+				ID:        15,
+				Name:      "tinytext",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeTinyBlob,
+				FieldType: types.NewFieldType(mysql.TypeTinyBlob),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "mediumtext", Value: []byte("hello world"), Type: mysql.TypeMediumBlob},
-			rowcodec.ColInfo{
-				ID:            16,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeMediumBlob),
+			model.Column{
+				ID:        16,
+				Name:      "mediumtext",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeMediumBlob,
+				FieldType: types.NewFieldType(mysql.TypeMediumBlob),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "text", Value: []byte("hello world"), Type: mysql.TypeBlob},
-			rowcodec.ColInfo{
-				ID:            17,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeBlob),
+			model.Column{
+				ID:        17,
+				Name:      "text",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeBlob,
+				FieldType: types.NewFieldType(mysql.TypeBlob),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "longtext", Value: []byte("hello world"), Type: mysql.TypeLongBlob},
-			rowcodec.ColInfo{
-				ID:            18,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeLongBlob),
+			model.Column{
+				ID:        18,
+				Name:      "longtext",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeLongBlob,
+				FieldType: types.NewFieldType(mysql.TypeLongBlob),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "varchar", Value: []byte("hello world"), Type: mysql.TypeVarchar},
-			rowcodec.ColInfo{
-				ID:            19,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeVarchar),
+			model.Column{
+				ID:        19,
+				Name:      "varchar",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeVarchar,
+				FieldType: types.NewFieldType(mysql.TypeVarchar),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "varstring", Value: []byte("hello world"), Type: mysql.TypeVarString},
-			rowcodec.ColInfo{
-				ID:            20,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeVarString),
+			model.Column{
+				ID:        20,
+				Name:      "varstring",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeVarString,
+				FieldType: types.NewFieldType(mysql.TypeVarString),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "string", Value: []byte("hello world"), Type: mysql.TypeString},
-			rowcodec.ColInfo{
-				ID:            21,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeString),
+			model.Column{
+				ID:        21,
+				Name:      "string",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeString,
+				FieldType: types.NewFieldType(mysql.TypeString),
 			},
 			"hello world",
 		},
 		{
-			model.Column{Name: "json", Value: `{"key": "value"}`, Type: mysql.TypeJSON},
-			rowcodec.ColInfo{
-				ID:            31,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeJSON),
+			model.Column{
+				ID:        31,
+				Name:      "json",
+				Value:     `{"key": "value"}`,
+				Type:      mysql.TypeJSON,
+				FieldType: types.NewFieldType(mysql.TypeJSON),
 			},
 			`{"key": "value"}`,
 		},
@@ -296,184 +274,156 @@ var csvTestColumnsGroup = [][]*csvTestColumnTuple{
 	{
 		{
 			model.Column{
-				Name:  "tinyblob",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeTinyBlob,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            22,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeTinyBlob)),
+				ID:        22,
+				Name:      "tinyblob",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeTinyBlob,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeTinyBlob)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "mediumblob",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeMediumBlob,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            23,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeMediumBlob)),
+				ID:        23,
+				Name:      "mediumblob",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeMediumBlob,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeMediumBlob)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "blob",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeBlob,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            24,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeBlob)),
+				ID:        24,
+				Name:      "blob",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeBlob,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeBlob)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "longblob",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeLongBlob,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            25,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeLongBlob)),
+				ID:        25,
+				Name:      "longblob",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeLongBlob,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeLongBlob)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "varbinary",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeVarchar,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            26,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeVarchar)),
+				ID:        26,
+				Name:      "varbinary",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeVarchar,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeVarchar)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "varbinary1",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeVarString,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            27,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeVarString)),
+				ID:        27,
+				Name:      "varbinary1",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeVarString,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeVarString)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 		{
 			model.Column{
-				Name:  "binary",
-				Value: []byte("hello world"),
-				Type:  mysql.TypeString,
-				Flag:  model.BinaryFlag,
-			},
-			rowcodec.ColInfo{
-				ID:            28,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setBinChsClnFlag(types.NewFieldType(mysql.TypeString)),
+				ID:        28,
+				Name:      "binary",
+				Value:     []byte("hello world"),
+				Type:      mysql.TypeString,
+				Flag:      model.BinaryFlag,
+				FieldType: setBinChsClnFlag(types.NewFieldType(mysql.TypeString)),
 			},
 			"aGVsbG8gd29ybGQ=",
 		},
 	},
 	{
 		{
-			model.Column{Name: "enum", Value: uint64(1), Type: mysql.TypeEnum},
-			rowcodec.ColInfo{
-				ID:            29,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setElems(types.NewFieldType(mysql.TypeEnum), []string{"a,", "b"}),
+			model.Column{
+				ID:        29,
+				Name:      "enum",
+				Value:     uint64(1),
+				Type:      mysql.TypeEnum,
+				FieldType: setElems(types.NewFieldType(mysql.TypeEnum), []string{"a,", "b"}),
 			},
 			"a,",
 		},
 	},
 	{
 		{
-			model.Column{Name: "set", Value: uint64(9), Type: mysql.TypeSet},
-			rowcodec.ColInfo{
-				ID:            30,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            setElems(types.NewFieldType(mysql.TypeSet), []string{"a", "b", "c", "d"}),
+			model.Column{
+				ID:        30,
+				Name:      "set",
+				Value:     uint64(9),
+				Type:      mysql.TypeSet,
+				FieldType: setElems(types.NewFieldType(mysql.TypeSet), []string{"a", "b", "c", "d"}),
 			},
 			"a,d",
 		},
 	},
 	{
 		{
-			model.Column{Name: "date", Value: "2000-01-01", Type: mysql.TypeDate},
-			rowcodec.ColInfo{
-				ID:            32,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeDate),
+			model.Column{
+				ID:        32,
+				Name:      "date",
+				Value:     "2000-01-01",
+				Type:      mysql.TypeDate,
+				FieldType: types.NewFieldType(mysql.TypeDate),
 			},
 			"2000-01-01",
 		},
 		{
-			model.Column{Name: "datetime", Value: "2015-12-20 23:58:58", Type: mysql.TypeDatetime},
-			rowcodec.ColInfo{
-				ID:            33,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeDatetime),
+			model.Column{
+				ID:        33,
+				Name:      "datetime",
+				Value:     "2015-12-20 23:58:58",
+				Type:      mysql.TypeDatetime,
+				FieldType: types.NewFieldType(mysql.TypeDatetime),
 			},
 			"2015-12-20 23:58:58",
 		},
 		{
-			model.Column{Name: "timestamp", Value: "1973-12-30 15:30:00", Type: mysql.TypeTimestamp},
-			rowcodec.ColInfo{
-				ID:            34,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeTimestamp),
+			model.Column{
+				ID:        34,
+				Name:      "timestamp",
+				Value:     "1973-12-30 15:30:00",
+				Type:      mysql.TypeTimestamp,
+				FieldType: types.NewFieldType(mysql.TypeTimestamp),
 			},
 			"1973-12-30 15:30:00",
 		},
 		{
-			model.Column{Name: "time", Value: "23:59:59", Type: mysql.TypeDuration},
-			rowcodec.ColInfo{
-				ID:            35,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeDuration),
+			model.Column{
+				ID:        35,
+				Name:      "time",
+				Value:     "23:59:59",
+				Type:      mysql.TypeDuration,
+				FieldType: types.NewFieldType(mysql.TypeDuration),
 			},
 			"23:59:59",
 		},
 	},
 	{
 		{
-			model.Column{Name: "year", Value: int64(1970), Type: mysql.TypeYear},
-			rowcodec.ColInfo{
-				ID:            36,
-				IsPKHandle:    false,
-				VirtualGenCol: false,
-				Ft:            types.NewFieldType(mysql.TypeYear),
+			model.Column{
+				ID:        36,
+				Name:      "year",
+				Value:     int64(1970),
+				Type:      mysql.TypeYear,
+				FieldType: types.NewFieldType(mysql.TypeYear),
 			},
 			int64(1970),
 		},
@@ -762,7 +712,7 @@ func TestCSVMessageEncode(t *testing.T) {
 func TestConvertToCSVType(t *testing.T) {
 	for _, group := range csvTestColumnsGroup {
 		for _, c := range group {
-			val, _ := fromColValToCsvVal(&c.col, c.colInfo.Ft)
+			val, _ := fromColValToCsvVal(&c.col)
 			require.Equal(t, c.want, val, c.col.Name)
 		}
 	}
@@ -772,12 +722,9 @@ func TestRowChangeEventConversion(t *testing.T) {
 	for idx, group := range csvTestColumnsGroup {
 		row := &model.RowChangedEvent{}
 		cols := make([]*model.Column, 0)
-		colInfos := make([]rowcodec.ColInfo, 0)
 		for _, c := range group {
 			cols = append(cols, &c.col)
-			colInfos = append(colInfos, c.colInfo)
 		}
-		row.ColInfos = colInfos
 		row.Table = &model.TableName{
 			Table:  fmt.Sprintf("table%d", idx),
 			Schema: "test",

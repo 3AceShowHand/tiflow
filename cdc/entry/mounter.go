@@ -342,6 +342,8 @@ func datum2Column(
 	rawCols := make([]types.Datum, len(tableInfo.RowColumnsOffset))
 	columnInfos := make([]*timodel.ColumnInfo, len(tableInfo.RowColumnsOffset))
 
+	_, _, rowColInfos := tableInfo.GetRowColInfos()
+
 	for _, colInfo := range tableInfo.Columns {
 		if !model.IsColCDCVisible(colInfo) {
 			log.Debug("skip the column which is not visible",
@@ -381,16 +383,17 @@ func datum2Column(
 		offset := tableInfo.RowColumnsOffset[colID]
 		rawCols[offset] = colDatums
 		cols[offset] = &model.Column{
-			ID:        colID,
-			Name:      colName,
-			FieldType: colInfo.FieldType,
-			Type:      colInfo.GetType(),
-			Charset:   colInfo.GetCharset(),
-			Value:     colValue,
-			Default:   defaultValue,
-			Flag:      tableInfo.ColumnsFlag[colID],
+			ID:      colID,
+			Name:    colName,
+			Type:    colInfo.GetType(),
+			Charset: colInfo.GetCharset(),
+			Value:   colValue,
+			Default: defaultValue,
+			Flag:    tableInfo.ColumnsFlag[colID],
 			// ApproximateBytes = column data size + column struct size
 			ApproximateBytes: size + sizeOfEmptyColumn,
+			FieldType:        &colInfo.FieldType,
+			IsPkHandle:       rowColInfos[offset].IsPKHandle,
 		}
 		columnInfos[offset] = colInfo
 	}
@@ -574,7 +577,6 @@ func (m *mounter) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, d
 		intRowID = row.RecordID.IntValue()
 	}
 
-	_, _, colInfos := tableInfo.GetRowColInfos()
 	rawRow.PreRowDatums = preRawCols
 	rawRow.RowDatums = rawCols
 
@@ -599,7 +601,6 @@ func (m *mounter) mountRowKVEntry(tableInfo *model.TableInfo, row *rowKVEntry, d
 			TableID:     row.PhysicalTableID,
 			IsPartition: tableInfo.GetPartitionInfo() != nil,
 		},
-		ColInfos:   colInfos,
 		TableInfo:  tableInfo,
 		Columns:    cols,
 		PreColumns: preCols,
