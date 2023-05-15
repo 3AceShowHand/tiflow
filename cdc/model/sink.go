@@ -22,6 +22,7 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/parser/types"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/pkg/integrity"
 	"github.com/pingcap/tiflow/pkg/quotes"
@@ -448,7 +449,9 @@ type Column struct {
 	Default interface{}    `json:"default" msg:"-"`
 
 	// ApproximateBytes is approximate bytes consumed by the column.
-	ApproximateBytes int `json:"-"`
+	ApproximateBytes int             `json:"-"`
+	ID               int64           `json:"-"`
+	FieldType        types.FieldType `json:"-"`
 }
 
 // RedoColumn stores Column change
