@@ -143,6 +143,20 @@ func (a *BatchEncoder) AppendRowChangedEvent(
 	} else {
 		message.Key = nil
 	}
+
+	var eventType string
+	if e.IsDelete() {
+		eventType = "DELETE"
+	} else if e.IsInsert() {
+		eventType = "INSERT"
+	} else {
+		eventType = "UPDATE"
+	}
+
+	log.Info("AppendRowChangedEvent: avro encoding success", zap.String("eventType", eventType),
+		zap.Any("key", message.Key), zap.Any("value", message.Value),
+		zap.String("topic", topic), zap.Uint64("commitTs", e.CommitTs))
+
 	message.IncRowsCount()
 	a.result = append(a.result, message)
 	return nil
