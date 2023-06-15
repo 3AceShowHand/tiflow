@@ -667,9 +667,9 @@ func (o *ownerImpl) cleanupOwnerJob() {
 func (o *ownerImpl) updateGCSafepoint(
 	ctx context.Context, state *orchestrator.GlobalReactorState,
 ) error {
-	minChekpoinTsMap, forceUpdateMap := o.calculateGCSafepoint(state)
+	minCheckpointTsMap, forceUpdateMap := o.calculateGCSafepoint(state)
 
-	for upstreamID, minCheckpointTs := range minChekpoinTsMap {
+	for upstreamID, minCheckpointTs := range minCheckpointTsMap {
 		up, ok := o.upstreamManager.Get(upstreamID)
 		if !ok {
 			upstreamInfo := state.Upstreams[upstreamID]
@@ -686,12 +686,7 @@ func (o *ownerImpl) updateGCSafepoint(
 		// (checkpointTs - 1) from TiKV, so (checkpointTs - 1) should be an upper
 		// bound for the GC safepoint.
 		gcSafepointUpperBound := minCheckpointTs - 1
-
-		var forceUpdate bool
-		if _, exist := forceUpdateMap[upstreamID]; exist {
-			forceUpdate = true
-		}
-
+		_, forceUpdate := forceUpdateMap[upstreamID]
 		err := up.GCManager.TryUpdateGCSafePoint(ctx, gcSafepointUpperBound, forceUpdate)
 		if err != nil {
 			return errors.Trace(err)

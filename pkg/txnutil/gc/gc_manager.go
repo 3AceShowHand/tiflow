@@ -54,9 +54,8 @@ type gcManager struct {
 	pdClock     pdutil.Clock
 	gcTTL       int64
 
-	lastUpdatedTime   time.Time
-	lastSucceededTime time.Time
-	lastSafePointTs   uint64
+	lastUpdatedTime time.Time
+	lastSafePointTs uint64
 }
 
 // NewManager creates a new Manager.
@@ -66,11 +65,11 @@ func NewManager(gcServiceID string, pdClient pd.Client, pdClock pdutil.Clock) Ma
 		gcSafepointUpdateInterval = time.Duration(val.(int) * int(time.Millisecond))
 	})
 	return &gcManager{
-		gcServiceID:       gcServiceID,
-		pdClient:          pdClient,
-		pdClock:           pdClock,
-		lastSucceededTime: time.Now(),
-		gcTTL:             serverConfig.GcTTL,
+		gcServiceID:     gcServiceID,
+		pdClient:        pdClient,
+		pdClock:         pdClock,
+		lastUpdatedTime: time.Now(),
+		gcTTL:           serverConfig.GcTTL,
 	}
 }
 
@@ -80,7 +79,6 @@ func (m *gcManager) TryUpdateGCSafePoint(
 	if time.Since(m.lastUpdatedTime) < gcSafepointUpdateInterval && !forceUpdate {
 		return nil
 	}
-	m.lastUpdatedTime = time.Now()
 
 	actual, err := SetServiceGCSafepoint(
 		ctx, m.pdClient, m.gcServiceID, m.gcTTL, checkpointTs)
@@ -88,7 +86,7 @@ func (m *gcManager) TryUpdateGCSafePoint(
 		log.Warn("updateGCSafePoint failed",
 			zap.Uint64("safePointTs", checkpointTs),
 			zap.Error(err))
-		if time.Since(m.lastSucceededTime) >= time.Second*time.Duration(m.gcTTL) {
+		if time.Since(m.lastUpdatedTime) >= time.Second*time.Duration(m.gcTTL) {
 			return cerror.ErrUpdateServiceSafepointFailed.Wrap(err)
 		}
 		return nil
@@ -104,7 +102,7 @@ func (m *gcManager) TryUpdateGCSafePoint(
 			zap.Uint64("actual", actual), zap.Uint64("checkpointTs", checkpointTs))
 	}
 	m.lastSafePointTs = actual
-	m.lastSucceededTime = time.Now()
+	m.lastUpdatedTime = time.Now()
 	return nil
 }
 
