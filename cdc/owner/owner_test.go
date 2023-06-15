@@ -49,9 +49,7 @@ type mockManager struct {
 	gc.Manager
 }
 
-func (m *mockManager) CheckStaleCheckpointTs(
-	ctx context.Context, changefeedID model.ChangeFeedID, checkpointTs model.Ts,
-) error {
+func (m *mockManager) CheckStaleCheckpointTs(checkpointTs model.Ts) error {
 	return cerror.ErrStartTsBeforeGC.GenWithStackByArgs()
 }
 
