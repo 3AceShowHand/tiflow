@@ -649,7 +649,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 
 				globalResolvedTs := atomic.LoadUint64(&c.globalResolvedTs)
 				if row.CommitTs <= globalResolvedTs || row.CommitTs <= sink.resolvedTs {
-					log.Warn("RowChangedEvent fallback row, ignore it",
+					log.Warn("RowChangedEvent fallback row",
 						zap.Uint64("commitTs", row.CommitTs),
 						zap.Uint64("globalResolvedTs", globalResolvedTs),
 						zap.Uint64("sinkResolvedTs", sink.resolvedTs),
@@ -664,6 +664,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 					generateFakeTableID(row.Table.Schema, row.Table.Table, partitionID)
 				row.Table.TableID = tableID
 
+				// eventGroup maintained for each table, buffer events until receive resolved ts.
 				group, ok := eventGroups[tableID]
 				if !ok {
 					group = newEventsGroup()
