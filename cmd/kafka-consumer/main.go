@@ -520,6 +520,7 @@ func (c *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// eventGroup buffers received DML events and resolve them by commit ts.
 type eventsGroup struct {
 	events []*model.RowChangedEvent
 }
