@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/cdc/sink/dmlsink"
 	"github.com/pingcap/tiflow/cdc/sink/dmlsink/txn/mysql"
@@ -28,6 +29,7 @@ import (
 	"github.com/pingcap/tiflow/pkg/config"
 	psink "github.com/pingcap/tiflow/pkg/sink"
 	pmysql "github.com/pingcap/tiflow/pkg/sink/mysql"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -146,6 +148,8 @@ func (s *dmlSink) WriteEvents(txnEvents ...*dmlsink.TxnCallbackableEvent) error 
 		if txn.GetTableSinkState() != state.TableSinkSinking {
 			// The table where the event comes from is in stopping, so it's safe
 			// to drop the event directly.
+			log.Warn("drop event because the table is in stopping",
+				zap.Uint64("startTs", txn.Event.StartTs), zap.Uint64("commitTs", txn.Event.CommitTs))
 			txn.Callback()
 			continue
 		}
