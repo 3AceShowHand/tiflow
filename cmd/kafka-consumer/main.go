@@ -555,7 +555,7 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	sink := c.sinks[partition]
 	c.sinksMu.Unlock()
 	if sink == nil {
-		panic("sink should initialized")
+		log.Panic("sink should be initialized")
 	}
 
 	var (
@@ -566,7 +566,10 @@ func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim saram
 	case config.ProtocolOpen, config.ProtocolDefault:
 		decoder = open.NewBatchDecoder()
 	case config.ProtocolCanalJSON:
-		decoder = canal.NewBatchDecoder(c.enableTiDBExtension, "")
+		decoder = canal.NewBatchDecoder(&common.Config{
+			EnableTiDBExtension: c.enableTiDBExtension,
+			Terminator:          ""},
+		)
 	case config.ProtocolAvro:
 		config := &common.Config{
 			EnableTiDBExtension: c.enableTiDBExtension,

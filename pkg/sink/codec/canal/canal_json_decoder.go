@@ -21,25 +21,22 @@ import (
 	"github.com/pingcap/tiflow/cdc/model"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/sink/codec"
+	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"go.uber.org/zap"
 )
 
 // batchDecoder decodes the byte into the original message.
 type batchDecoder struct {
-	data                []byte
-	msg                 canalJSONMessageInterface
-	enableTiDBExtension bool
-	terminator          string
+	data []byte
+	msg  canalJSONMessageInterface
+
+	config *common.Config
 }
 
 // NewBatchDecoder return a decoder for canal-json
-func NewBatchDecoder(
-	enableTiDBExtension bool,
-	terminator string,
-) codec.RowEventDecoder {
+func NewBatchDecoder(config *common.Config) codec.RowEventDecoder {
 	return &batchDecoder{
-		enableTiDBExtension: enableTiDBExtension,
-		terminator:          terminator,
+		config: config,
 	}
 }
 
@@ -56,17 +53,17 @@ func (b *batchDecoder) HasNext() (model.MessageType, bool, error) {
 		encodedData []byte
 	)
 
-	if b.enableTiDBExtension {
+	if b.config.EnableTiDBExtension {
 		msg = &canalJSONMessageWithTiDBExtension{
 			JSONMessage: &JSONMessage{},
 			Extensions:  &tidbExtension{},
 		}
 	}
-	if len(b.terminator) > 0 {
-		idx := bytes.IndexAny(b.data, b.terminator)
+	if len(b.config.Terminator) > 0 {
+		idx := bytes.IndexAny(b.data, b.config.Terminator)
 		if idx >= 0 {
 			encodedData = b.data[:idx]
-			b.data = b.data[idx+len(b.terminator):]
+			b.data = b.data[idx+len(b.config.Terminator):]
 		} else {
 			encodedData = b.data
 			b.data = nil

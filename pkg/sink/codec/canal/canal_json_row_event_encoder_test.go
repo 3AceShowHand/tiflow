@@ -271,7 +271,7 @@ func TestEncodeCheckpointEvent(t *testing.T) {
 		}
 
 		require.NotNil(t, msg)
-		decoder := NewBatchDecoder(enable, "")
+		decoder := NewBatchDecoder(&common.Config{EnableTiDBExtension: enable, Terminator: ""})
 
 		err = decoder.AddKeyValue(msg.Key, msg.Value)
 		require.NoError(t, err)
