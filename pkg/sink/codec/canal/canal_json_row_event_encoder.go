@@ -37,6 +37,8 @@ func newJSONMessageForDML(
 	isDelete := e.IsDelete()
 	mysqlTypeMap := make(map[string]string, len(e.Columns))
 
+	statistics := make(map[string]int)
+
 	filling := func(columns []*model.Column, out *jwriter.Writer,
 		onlyOutputUpdatedColumn bool,
 		onlyHandleKeyColumns bool,
@@ -88,21 +90,32 @@ func newJSONMessageForDML(
 
 	out := &jwriter.Writer{}
 	out.RawByte('{')
+
+	old := out.Buffer.Size()
 	{
 		const prefix string = ",\"id\":"
 		out.RawString(prefix[1:])
 		out.Int64(0) // ignored by both Canal Adapter and Flink
 	}
+	statistics["id"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"database\":"
 		out.RawString(prefix)
 		out.String(e.Table.Schema)
 	}
+	statistics["database"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"table\":"
 		out.RawString(prefix)
 		out.String(e.Table.Table)
 	}
+	statistics["table"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"pkNames\":"
 		out.RawString(prefix)
@@ -120,31 +133,49 @@ func newJSONMessageForDML(
 			out.RawByte(']')
 		}
 	}
+	statistics["pkNames"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"isDdl\":"
 		out.RawString(prefix)
 		out.Bool(false)
 	}
+	statistics["isDDL"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"type\":"
 		out.RawString(prefix)
 		out.String(eventTypeString(e))
 	}
+	statistics["type"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"es\":"
 		out.RawString(prefix)
 		out.Int64(convertToCanalTs(e.CommitTs))
 	}
+	statistics["es"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"ts\":"
 		out.RawString(prefix)
 		out.Int64(time.Now().UnixMilli()) // ignored by both Canal Adapter and Flink
 	}
+	statistics["ts"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"sql\":"
 		out.RawString(prefix)
 		out.String("")
 	}
+	statistics["sql"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		columns := e.PreColumns
 		if !isDelete {
@@ -181,6 +212,9 @@ func newJSONMessageForDML(
 			out.RawByte('}')
 		}
 	}
+	statistics["sqlType"] = out.Buffer.Size() - old
+
+	old = out.Buffer.Size()
 	{
 		const prefix string = ",\"mysqlType\":"
 		out.RawString(prefix)
@@ -202,7 +236,9 @@ func newJSONMessageForDML(
 			out.RawByte('}')
 		}
 	}
+	statistics["mysqlType"] = out.Buffer.Size() - old
 
+	old = out.Buffer.Size()
 	if e.IsDelete() {
 		out.RawString(",\"old\":null")
 		out.RawString(",\"data\":")
@@ -234,7 +270,9 @@ func newJSONMessageForDML(
 	} else {
 		log.Panic("unreachable event type", zap.Any("event", e))
 	}
+	statistics["data"] = out.Buffer.Size() - old
 
+	old = out.Buffer.Size()
 	if config.EnableTiDBExtension {
 		const prefix string = ",\"_tidb\":"
 		out.RawString(prefix)
@@ -244,6 +282,16 @@ func newJSONMessageForDML(
 		out.RawByte('}')
 	}
 	out.RawByte('}')
+	statistics["extension"] = out.Buffer.Size() - old
+
+	var total int
+	for _, item := range statistics {
+		total += item
+	}
+	log.Info("statis")
+	for key, value := range statistics {
+		log.Info("statistics", zap.String("key", key), zap.Int("value", value), zap.Float64("percentage", float64(value)/float64(total)))
+	}
 
 	return out.BuildBytes()
 }
