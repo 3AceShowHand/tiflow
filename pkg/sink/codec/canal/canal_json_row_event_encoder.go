@@ -15,7 +15,9 @@ package canal
 
 import (
 	"context"
+	"sort"
 	"time"
+	"unsafe"
 
 	"github.com/goccy/go-json"
 	"github.com/mailru/easyjson/jwriter"
@@ -44,6 +46,17 @@ func newJSONMessageForDML(
 		onlyHandleKeyColumns bool,
 		newColumnMap map[string]*model.Column,
 	) error {
+		type item struct {
+			name      string
+			mysqlType string
+			value     interface{}
+
+			origin int
+			after  int
+			rate   float64
+		}
+		expansion := make([]item, 0, len(columns))
+
 		if len(columns) == 0 {
 			out.RawString("null")
 			return nil
@@ -70,10 +83,14 @@ func newJSONMessageForDML(
 				if err != nil {
 					return cerror.WrapError(cerror.ErrCanalEncodeFailed, err)
 				}
+
+				originSize := int(unsafe.Sizeof(col.Value))
 				value, err := builder.formatValue(col.Value, javaType)
 				if err != nil {
 					return cerror.WrapError(cerror.ErrCanalEncodeFailed, err)
 				}
+
+				old := out.Buffer.Size()
 				out.String(col.Name)
 				out.RawByte(':')
 				if col.Value == nil {
@@ -81,10 +98,35 @@ func newJSONMessageForDML(
 				} else {
 					out.String(value)
 				}
+				encodedSize := out.Buffer.Size() - old
+
+				expansion = append(expansion, item{
+					name:      col.Name,
+					value:     col.Value,
+					mysqlType: mysqlType,
+					origin:    originSize,
+					after:     encodedSize,
+					rate:      float64(encodedSize) / float64(originSize),
+				})
+
 			}
 		}
 		out.RawByte('}')
 		out.RawByte(']')
+
+		sort.Slice(expansion, func(i, j int) bool {
+			return expansion[i].rate > expansion[j].rate
+		})
+
+		var originTotal int
+		var afterTotal int
+		for _, item := range expansion {
+			originTotal += item.origin
+			afterTotal += item.after
+			log.Info("expansion", zap.String("name", item.name), zap.Int("origin", item.origin), zap.Int("after", item.after), zap.Float64("rate", item.rate), zap.String("mysqlType", item.mysqlType), zap.Any("value", item.value))
+		}
+		log.Info("expansion Total", zap.Int("originTotal", originTotal), zap.Int("afterTotal", afterTotal), zap.Float64("rate", float64(afterTotal)/float64(originTotal)))
+
 		return nil
 	}
 
