@@ -481,19 +481,19 @@ func (s *mysqlBackend) batchSingleTxnDmls(
 }
 
 func (s *mysqlBackend) genUpdateSQL(rows ...*sqlmodel.RowChange) ([]string, [][]interface{}) {
-	size, count := 0, 0
+	var size int
 	for _, r := range rows {
 		size += int(r.GetApproximateDataSize())
-		count++
 	}
+	count := len(rows)
 	if size < s.cfg.MaxMultiUpdateRowSize*count {
 		// use multi update in one SQL
 		sql, value := sqlmodel.GenUpdateSQL(rows...)
 		return []string{sql}, [][]interface{}{value}
 	}
 	// each row has one independent update SQL.
-	sqls := make([]string, 0, len(rows))
-	values := make([][]interface{}, 0, len(rows))
+	sqls := make([]string, 0, count)
+	values := make([][]interface{}, 0, count)
 	for _, row := range rows {
 		sql, value := row.GenSQL(sqlmodel.DMLUpdate)
 		sqls = append(sqls, sql)
