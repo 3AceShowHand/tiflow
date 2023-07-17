@@ -243,7 +243,7 @@ func (s *mysqlBackend) Flush(ctx context.Context) (err error) {
 	s.metricTxnSinkDMLBatchCommit.Observe(startCallback.Sub(start).Seconds())
 	s.metricTxnSinkDMLBatchCallback.Observe(time.Since(startCallback).Seconds())
 
-	// Be friently to GC.
+	// Be friendly to GC.
 	for i := 0; i < len(s.events); i++ {
 		s.events[i] = nil
 	}
@@ -440,49 +440,41 @@ func (s *mysqlBackend) batchSingleTxnDmls(
 	insertRows, updateRows, deleteRows := s.groupRowsByType(event, tableInfo, !translateToInsert)
 
 	// handle delete
-	if len(deleteRows) > 0 {
-		for _, rows := range deleteRows {
-			sql, value := sqlmodel.GenDeleteSQL(rows...)
-			sqls = append(sqls, sql)
-			values = append(values, value)
-		}
+	for _, rows := range deleteRows {
+		sql, value := sqlmodel.GenDeleteSQL(rows...)
+		sqls = append(sqls, sql)
+		values = append(values, value)
 	}
 
 	// handle update
-	if len(updateRows) > 0 {
-		if s.cfg.IsTiDB {
-			for _, rows := range updateRows {
-				s, v := s.genUpdateSQL(rows...)
-				sqls = append(sqls, s...)
-				values = append(values, v...)
-			}
-			// The behavior of update statement differs between TiDB and MySQL.
-			// So we don't use batch update statement when downstream is MySQL.
-			// Ref:https://docs.pingcap.com/tidb/stable/sql-statement-update#mysql-compatibility
-		} else {
-			for _, rows := range updateRows {
-				for _, row := range rows {
-					sql, value := row.GenSQL(sqlmodel.DMLUpdate)
-					sqls = append(sqls, sql)
-					values = append(values, value)
-				}
+	if s.cfg.IsTiDB {
+		for _, rows := range updateRows {
+			s, v := s.genUpdateSQL(rows...)
+			sqls = append(sqls, s...)
+			values = append(values, v...)
+		}
+		// The behavior of update statement differs between TiDB and MySQL.
+		// So we don't use batch update statement when downstream is MySQL.
+		// Ref:https://docs.pingcap.com/tidb/stable/sql-statement-update#mysql-compatibility
+	} else {
+		for _, rows := range updateRows {
+			for _, row := range rows {
+				sql, value := row.GenSQL(sqlmodel.DMLUpdate)
+				sqls = append(sqls, sql)
+				values = append(values, value)
 			}
 		}
 	}
 
 	// handle insert
-	if len(insertRows) > 0 {
-		for _, rows := range insertRows {
-			if translateToInsert {
-				sql, value := sqlmodel.GenInsertSQL(sqlmodel.DMLInsert, rows...)
-				sqls = append(sqls, sql)
-				values = append(values, value)
-			} else {
-				sql, value := sqlmodel.GenInsertSQL(sqlmodel.DMLReplace, rows...)
-				sqls = append(sqls, sql)
-				values = append(values, value)
-			}
-		}
+	dmlType := sqlmodel.DMLReplace
+	if translateToInsert {
+		dmlType = sqlmodel.DMLInsert
+	}
+	for _, rows := range insertRows {
+		sql, value := sqlmodel.GenInsertSQL(dmlType, rows...)
+		sqls = append(sqls, sql)
+		values = append(values, value)
 	}
 
 	return
@@ -531,7 +523,8 @@ func (s *mysqlBackend) prepareDMLs() *preparedDMLs {
 	callbacks := make([]dmlsink.CallbackFunc, 0, len(s.events))
 
 	// translateToInsert control the update and insert behavior
-	// we only translate into insert when old value is enabled and safe mode is disabled
+	// Insert event is translated to INSERT statement when it is true, else REPLACE.
+	// Update event is translated to UPDATE statement when it is true, else DELETE and INSERT.
 	translateToInsert := s.cfg.EnableOldValue && !s.cfg.SafeMode
 
 	rowCount := 0
@@ -592,7 +585,7 @@ func (s *mysqlBackend) prepareDMLs() *preparedDMLs {
 			var args []interface{}
 			// If the old value is enabled, is not in safe mode and is an update event, then translate to UPDATE.
 			// NOTICE: Only update events with the old value feature enabled will have both columns and preColumns.
-			if translateToInsert && len(row.PreColumns) != 0 && len(row.Columns) != 0 {
+			if translateToInsert && row.IsUpdate() {
 				query, args = prepareUpdate(quoteTable, row.PreColumns, row.Columns, s.cfg.ForceReplicate)
 				if query != "" {
 					sqls = append(sqls, query)
@@ -741,7 +734,7 @@ func (s *mysqlBackend) execDMLWithMaxRetries(pctx context.Context, dmls *prepare
 	}
 
 	start := time.Now()
-	// approximateSize is multiplied by 2 because in extreme circustumas, every
+	// approximateSize is multiplied by 2 because in extreme circumstances, every
 	// byte in dmls can be escaped and adds one byte.
 	fallbackToSeqWay := dmls.approximateSize*2 > s.maxAllowedPacket
 	return retry.Do(pctx, func() error {
@@ -764,11 +757,11 @@ func (s *mysqlBackend) execDMLWithMaxRetries(pctx context.Context, dmls *prepare
 			}
 
 			// If interplated SQL size exceeds maxAllowedPacket, mysql driver will
-			// fall back to the sequantial way.
+			// fall back to the sequential way.
 			// error can be ErrPrepareMulti, ErrBadConn etc.
 			// TODO: add a quick path to check whether we should fallback to
 			// the sequence way.
-			if s.cfg.MultiStmtEnable && !fallbackToSeqWay {
+			if s.cfg.MultiStmtEnable && !fallbackToSe; qWay {
 				err = s.multiStmtExecute(pctx, dmls, tx, writeTimeout)
 				if err != nil {
 					fallbackToSeqWay = true
