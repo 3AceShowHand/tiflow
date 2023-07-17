@@ -761,7 +761,7 @@ func (s *mysqlBackend) execDMLWithMaxRetries(pctx context.Context, dmls *prepare
 			// error can be ErrPrepareMulti, ErrBadConn etc.
 			// TODO: add a quick path to check whether we should fallback to
 			// the sequence way.
-			if s.cfg.MultiStmtEnable && !fallbackToSecqWay {
+			if s.cfg.MultiStmtEnable && !fallbackToSeqWay {
 				err = s.multiStmtExecute(pctx, dmls, tx, writeTimeout)
 				if err != nil {
 					fallbackToSeqWay = true
