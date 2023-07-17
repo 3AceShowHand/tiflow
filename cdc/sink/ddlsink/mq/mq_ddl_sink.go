@@ -72,7 +72,7 @@ func newDDLSink(ctx context.Context,
 		topicManager:   topicManager,
 		encoderBuilder: encoderBuilder,
 		producer:       producer,
-		statistics:     metrics.NewStatistics(ctx, changefeedID, sink.RowSink),
+		statistics:     metrics.NewStatistics(changefeedID, sink.RowSink),
 		admin:          adminClient,
 	}
 }

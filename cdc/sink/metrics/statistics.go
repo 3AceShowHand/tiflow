@@ -14,7 +14,6 @@
 package metrics
 
 import (
-	"context"
 	"time"
 
 	"github.com/pingcap/tiflow/cdc/model"
@@ -24,23 +23,20 @@ import (
 )
 
 // NewStatistics creates a statistics
-func NewStatistics(ctx context.Context,
-	changefeed model.ChangeFeedID,
-	sinkType sink.Type,
-) *Statistics {
+func NewStatistics(changefeed model.ChangeFeedID, sinkType sink.Type) *Statistics {
 	statistics := &Statistics{
 		sinkType:     sinkType,
 		captureAddr:  config.GetGlobalServerConfig().AdvertiseAddr,
 		changefeedID: changefeed,
 	}
 
-	namespcae := statistics.changefeedID.Namespace
-	changefeedID := statistics.changefeedID.ID
+	namespace := changefeed.Namespace
+	changefeedID := changefeed.ID
 	s := sinkType.String()
-	statistics.metricExecDDLHis = ExecDDLHistogram.WithLabelValues(namespcae, changefeedID, s)
-	statistics.metricExecBatchHis = ExecBatchHistogram.WithLabelValues(namespcae, changefeedID, s)
-	statistics.metricRowSizeHis = LargeRowSizeHistogram.WithLabelValues(namespcae, changefeedID, s)
-	statistics.metricExecErrCnt = ExecutionErrorCounter.WithLabelValues(namespcae, changefeedID, s)
+	statistics.metricExecDDLHis = ExecDDLHistogram.WithLabelValues(namespace, changefeedID, s)
+	statistics.metricExecBatchHis = ExecBatchHistogram.WithLabelValues(namespace, changefeedID, s)
+	statistics.metricRowSizeHis = LargeRowSizeHistogram.WithLabelValues(namespace, changefeedID, s)
+	statistics.metricExecErrCnt = ExecutionErrorCounter.WithLabelValues(namespace, changefeedID, s)
 	return statistics
 }
 

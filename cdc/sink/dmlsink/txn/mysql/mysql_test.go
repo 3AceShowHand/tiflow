@@ -56,10 +56,8 @@ func newMySQLBackendWithoutDB(ctx context.Context) *mysqlBackend {
 	cfg := pmysql.NewConfig()
 	cfg.BatchDMLEnable = false
 	return &mysqlBackend{
-		statistics: metrics.NewStatistics(ctx,
-			model.DefaultChangeFeedID("test"),
-			sink.TxnSink),
-		cfg: cfg,
+		statistics: metrics.NewStatistics(model.DefaultChangeFeedID("test"), sink.TxnSink),
+		cfg:        cfg,
 	}
 }
 
@@ -71,7 +69,7 @@ func newMySQLBackend(
 	dbConnFactory pmysql.Factory,
 ) (*mysqlBackend, error) {
 	ctx1, cancel := context.WithCancel(ctx)
-	statistics := metrics.NewStatistics(ctx1, changefeedID, sink.TxnSink)
+	statistics := metrics.NewStatistics(changefeedID, sink.TxnSink)
 	cancel() // Cancel background goroutines in returned metrics.Statistics.
 	raw := sinkURI.Query()
 	raw.Set("batch-dml-enable", "true")

@@ -77,7 +77,7 @@ func newDMLSink(
 	errCh chan error,
 ) *dmlSink {
 	ctx, cancel := context.WithCancel(ctx)
-	statistics := metrics.NewStatistics(ctx, changefeedID, sink.RowSink)
+	statistics := metrics.NewStatistics(changefeedID, sink.RowSink)
 	worker := newWorker(changefeedID, protocol,
 		encoderBuilder, encoderConcurrency, producer, statistics)
 
