@@ -39,8 +39,6 @@ var _ dmlsink.EventSink[*model.RowChangedEvent] = (*dmlSink)(nil)
 type dmlSink struct {
 	// id indicates this sink belongs to which processor(changefeed).
 	id model.ChangeFeedID
-	// protocol indicates the protocol used by this sink.
-	protocol config.Protocol
 
 	alive struct {
 		sync.RWMutex
@@ -71,19 +69,16 @@ func newDMLSink(
 	adminClient kafka.ClusterAdminClient,
 	topicManager manager.TopicManager,
 	eventRouter *dispatcher.EventRouter,
-	encoderBuilder codec.RowEventEncoderBuilder,
-	encoderConcurrency int,
+	encoderGroup codec.EncoderGroup,
 	protocol config.Protocol,
 	errCh chan error,
 ) *dmlSink {
 	ctx, cancel := context.WithCancel(ctx)
 	statistics := metrics.NewStatistics(ctx, changefeedID, sink.RowSink)
-	worker := newWorker(changefeedID, protocol,
-		encoderBuilder, encoderConcurrency, producer, statistics)
+	worker := newWorker(changefeedID, protocol, encoderGroup, producer, statistics)
 
 	s := &dmlSink{
 		id:          changefeedID,
-		protocol:    protocol,
 		adminClient: adminClient,
 		ctx:         ctx,
 		cancel:      cancel,

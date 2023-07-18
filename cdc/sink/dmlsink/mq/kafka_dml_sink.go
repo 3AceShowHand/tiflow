@@ -25,6 +25,7 @@ import (
 	"github.com/pingcap/tiflow/cdc/sink/util"
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
+	"github.com/pingcap/tiflow/pkg/sink/codec"
 	"github.com/pingcap/tiflow/pkg/sink/codec/builder"
 	"github.com/pingcap/tiflow/pkg/sink/kafka"
 	tiflowutil "github.com/pingcap/tiflow/pkg/util"
@@ -112,17 +113,13 @@ func NewKafkaDMLSink(
 	if err != nil {
 		return nil, cerror.WrapError(cerror.ErrKafkaNewProducer, err)
 	}
-	defer func() {
-		if err != nil && asyncProducer != nil {
-			asyncProducer.Close()
-		}
-	}()
 
 	metricsCollector := factory.MetricsCollector(tiflowutil.RoleProcessor, adminClient)
-	dmlProducer := producerCreator(ctx, changefeedID, asyncProducer, metricsCollector, errCh, failpointCh)
 	concurrency := tiflowutil.GetOrZero(replicaConfig.Sink.EncoderConcurrency)
+	encoderGroup := codec.NewEncoderGroup(encoderBuilder, concurrency, changefeedID)
+	dmlProducer := producerCreator(ctx, changefeedID, asyncProducer, metricsCollector, errCh, failpointCh)
 	s := newDMLSink(ctx, changefeedID, dmlProducer, adminClient, topicManager,
-		eventRouter, encoderBuilder, concurrency, protocol, errCh,
+		eventRouter, encoderGroup, protocol, errCh,
 	)
 	log.Info("DML sink producer created",
 		zap.String("namespace", changefeedID.Namespace),

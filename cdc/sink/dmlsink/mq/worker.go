@@ -85,25 +85,22 @@ type worker struct {
 func newWorker(
 	id model.ChangeFeedID,
 	protocol config.Protocol,
-	builder codec.RowEventEncoderBuilder,
-	encoderConcurrency int,
+	encoderGroup codec.EncoderGroup,
 	producer dmlproducer.DMLProducer,
 	statistics *metrics.Statistics,
 ) *worker {
-	w := &worker{
+	return &worker{
 		changeFeedID:                      id,
 		protocol:                          protocol,
 		msgChan:                           chann.NewAutoDrainChann[mqEvent](),
 		ticker:                            time.NewTicker(flushInterval),
-		encoderGroup:                      codec.NewEncoderGroup(builder, encoderConcurrency, id),
+		encoderGroup:                      encoderGroup,
 		producer:                          producer,
 		metricMQWorkerSendMessageDuration: mq.WorkerSendMessageDuration.WithLabelValues(id.Namespace, id.ID),
 		metricMQWorkerBatchSize:           mq.WorkerBatchSize.WithLabelValues(id.Namespace, id.ID),
 		metricMQWorkerBatchDuration:       mq.WorkerBatchDuration.WithLabelValues(id.Namespace, id.ID),
 		statistics:                        statistics,
 	}
-
-	return w
 }
 
 // run starts a loop that keeps collecting, sorting and sending messages
