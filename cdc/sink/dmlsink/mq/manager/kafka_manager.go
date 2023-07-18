@@ -295,5 +295,6 @@ func (m *kafkaTopicManager) CreateTopicAndWaitUntilVisible(
 
 // Close exits the background goroutine.
 func (m *kafkaTopicManager) Close() {
+	m.admin.Close()
 	m.cancel()
 }

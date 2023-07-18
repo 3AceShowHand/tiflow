@@ -15,12 +15,8 @@ package v2
 
 import "github.com/segmentio/kafka-go"
 
-// todo: after implement the producer, remove the `unused lint`.
-//
-//nolint:unused
 type manualPartitioner struct{}
 
-//nolint:unused
 func newManualPartitioner() kafka.Balancer {
 	return &manualPartitioner{}
 }

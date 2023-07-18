@@ -27,7 +27,6 @@ import (
 	"github.com/pingcap/tiflow/pkg/config"
 	"github.com/pingcap/tiflow/pkg/sink"
 	"github.com/pingcap/tiflow/pkg/sink/codec"
-	"github.com/pingcap/tiflow/pkg/sink/kafka"
 	"go.uber.org/zap"
 )
 
@@ -52,14 +51,11 @@ type DDLSink struct {
 	producer ddlproducer.DDLProducer
 	// statistics is used to record DDL metrics.
 	statistics *metrics.Statistics
-	// admin is used to query kafka cluster information.
-	admin kafka.ClusterAdminClient
 }
 
 func newDDLSink(ctx context.Context,
 	changefeedID model.ChangeFeedID,
 	producer ddlproducer.DDLProducer,
-	adminClient kafka.ClusterAdminClient,
 	topicManager manager.TopicManager,
 	eventRouter *dispatcher.EventRouter,
 	encoderBuilder codec.RowEventEncoderBuilder,
@@ -73,7 +69,6 @@ func newDDLSink(ctx context.Context,
 		encoderBuilder: encoderBuilder,
 		producer:       producer,
 		statistics:     metrics.NewStatistics(ctx, changefeedID, sink.RowSink),
-		admin:          adminClient,
 	}
 }
 
@@ -94,6 +89,14 @@ func (k *DDLSink) WriteDDLEvent(ctx context.Context, ddl *model.DDLEvent) error 
 	}
 
 	topic := k.eventRouter.GetTopicForDDL(ddl)
+	// Notice: We must call GetPartitionNum here,
+	// which will be responsible for automatically creating topics when they don't exist.
+	// If it is not called here and kafka has `auto.create.topics.enable` turned on,
+	// then the auto-created topic will not be created as configured by ticdc.
+	partitionNum, err := k.topicManager.GetPartitionNum(ctx, topic)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	partitionRule := k.eventRouter.GetDLLDispatchRuleByProtocol(k.protocol)
 	log.Debug("Emit ddl event",
 		zap.Uint64("commitTs", ddl.CommitTs),
@@ -101,21 +104,9 @@ func (k *DDLSink) WriteDDLEvent(ctx context.Context, ddl *model.DDLEvent) error 
 		zap.String("namespace", k.id.Namespace),
 		zap.String("changefeed", k.id.ID))
 	if partitionRule == dispatcher.PartitionAll {
-		partitionNum, err := k.topicManager.GetPartitionNum(ctx, topic)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		err = k.statistics.RecordDDLExecution(func() error {
 			return k.producer.SyncBroadcastMessage(ctx, topic, partitionNum, msg)
 		})
-		return errors.Trace(err)
-	}
-	// Notice: We must call GetPartitionNum here,
-	// which will be responsible for automatically creating topics when they don't exist.
-	// If it is not called here and kafka has `auto.create.topics.enable` turned on,
-	// then the auto-created topic will not be created as configured by ticdc.
-	_, err = k.topicManager.GetPartitionNum(ctx, topic)
-	if err != nil {
 		return errors.Trace(err)
 	}
 	err = k.statistics.RecordDDLExecution(func() error {
@@ -175,8 +166,5 @@ func (k *DDLSink) Close() {
 	}
 	if k.topicManager != nil {
 		k.topicManager.Close()
-	}
-	if k.admin != nil {
-		k.admin.Close()
 	}
 }
