@@ -59,172 +59,120 @@ type avroTestColumnTuple struct {
 
 var avroTestColumns = []*avroTestColumnTuple{
 	{
-		model.Column{Name: "tiny", Value: int64(1), Type: mysql.TypeTiny},
-		rowcodec.ColInfo{
-			ID:            1,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeTiny),
-		},
+		model.Column{ID: 1, Name: "tiny", Value: int64(1), Type: mysql.TypeTiny, FieldType: types.NewFieldType(mysql.TypeTiny)},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT"}},
 		int32(1), "int",
 	},
 	{
-		model.Column{Name: "short", Value: int64(1), Type: mysql.TypeShort},
-		rowcodec.ColInfo{
-			ID:            2,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeShort),
-		},
+		model.Column{ID: 2, Name: "short", Value: int64(1), Type: mysql.TypeShort, FieldType: types.NewFieldType(mysql.TypeShort)},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT"}},
 		int32(1), "int",
 	},
 	{
-		model.Column{Name: "int24", Value: int64(1), Type: mysql.TypeInt24},
-		rowcodec.ColInfo{
-			ID:            3,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeInt24),
-		},
+		model.Column{ID: 3, Name: "int24", Value: int64(1), Type: mysql.TypeInt24, FieldType: types.NewFieldType(mysql.TypeInt24)},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT"}},
 		int32(1), "int",
 	},
 	{
-		model.Column{Name: "long", Value: int64(1), Type: mysql.TypeLong},
-		rowcodec.ColInfo{
-			ID:            4,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeLong),
-		},
+		model.Column{ID: 4, Name: "long", Value: int64(1), Type: mysql.TypeLong, FieldType: types.NewFieldType(mysql.TypeLong)},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT"}},
 		int32(1), "int",
 	},
 	{
-		model.Column{Name: "longlong", Value: int64(1), Type: mysql.TypeLonglong},
-		rowcodec.ColInfo{
-			ID:            5,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeLonglong),
-		},
+		model.Column{ID: 5, Name: "longlong", Value: int64(1), Type: mysql.TypeLonglong, FieldType: types.NewFieldType(mysql.TypeLonglong)},
 		avroSchema{Type: "long", Parameters: map[string]string{"tidb_type": "BIGINT"}},
 		int64(1), "long",
 	},
 	{
 		model.Column{
-			Name:  "tinyunsigned",
-			Value: uint64(1),
-			Type:  mysql.TypeTiny,
-			Flag:  model.UnsignedFlag,
-		},
-		rowcodec.ColInfo{
-			ID:            6,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            setFlag(types.NewFieldType(mysql.TypeTiny), uint(model.UnsignedFlag)),
+			ID:        6,
+			Name:      "tinyunsigned",
+			Value:     uint64(1),
+			Type:      mysql.TypeTiny,
+			Flag:      model.UnsignedFlag,
+			FieldType: setFlag(types.NewFieldType(mysql.TypeTiny), uint(model.UnsignedFlag)),
 		},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT UNSIGNED"}},
 		int32(1), "int",
 	},
 	{
 		model.Column{
-			Name:  "shortunsigned",
-			Value: uint64(1),
-			Type:  mysql.TypeShort,
-			Flag:  model.UnsignedFlag,
-		},
-		rowcodec.ColInfo{
-			ID:            7,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            setFlag(types.NewFieldType(mysql.TypeShort), uint(model.UnsignedFlag)),
+			ID:        7,
+			Name:      "shortunsigned",
+			Value:     uint64(1),
+			Type:      mysql.TypeShort,
+			Flag:      model.UnsignedFlag,
+			FieldType: setFlag(types.NewFieldType(mysql.TypeShort), uint(model.UnsignedFlag)),
 		},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT UNSIGNED"}},
 		int32(1), "int",
 	},
 	{
 		model.Column{
-			Name:  "int24unsigned",
-			Value: uint64(1),
-			Type:  mysql.TypeInt24,
-			Flag:  model.UnsignedFlag,
-		},
-		rowcodec.ColInfo{
-			ID:            8,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            setFlag(types.NewFieldType(mysql.TypeInt24), uint(model.UnsignedFlag)),
+			ID:        8,
+			Name:      "int24unsigned",
+			Value:     uint64(1),
+			Type:      mysql.TypeInt24,
+			Flag:      model.UnsignedFlag,
+			FieldType: setFlag(types.NewFieldType(mysql.TypeInt24), uint(model.UnsignedFlag)),
 		},
 		avroSchema{Type: "int", Parameters: map[string]string{"tidb_type": "INT UNSIGNED"}},
 		int32(1), "int",
 	},
 	{
 		model.Column{
-			Name:  "longunsigned",
-			Value: uint64(1),
-			Type:  mysql.TypeLong,
-			Flag:  model.UnsignedFlag,
-		},
-		rowcodec.ColInfo{
-			ID:            9,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            setFlag(types.NewFieldType(mysql.TypeLong), uint(model.UnsignedFlag)),
+			ID:        9,
+			Name:      "longunsigned",
+			Value:     uint64(1),
+			Type:      mysql.TypeLong,
+			Flag:      model.UnsignedFlag,
+			FieldType: setFlag(types.NewFieldType(mysql.TypeLong), uint(model.UnsignedFlag)),
 		},
 		avroSchema{Type: "long", Parameters: map[string]string{"tidb_type": "INT UNSIGNED"}},
 		int64(1), "long",
 	},
 	{
 		model.Column{
+			ID:    10,
 			Name:  "longlongunsigned",
 			Value: uint64(1),
 			Type:  mysql.TypeLonglong,
 			Flag:  model.UnsignedFlag,
-		},
-		rowcodec.ColInfo{
-			ID:            10,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft: setFlag(
-				types.NewFieldType(mysql.TypeLonglong),
-				uint(model.UnsignedFlag),
-			),
+			FieldType: setFlag(
+				types.NewFieldType(mysql.TypeLonglong), uint(model.UnsignedFlag)),
 		},
 		avroSchema{Type: "long", Parameters: map[string]string{"tidb_type": "BIGINT UNSIGNED"}},
 		int64(1), "long",
 	},
 	{
-		model.Column{Name: "float", Value: float32(3.14), Type: mysql.TypeFloat},
-		rowcodec.ColInfo{
-			ID:            11,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeFloat),
+		model.Column{
+			ID:        11,
+			Name:      "float",
+			Value:     float32(3.14),
+			Type:      mysql.TypeFloat,
+			FieldType: types.NewFieldType(mysql.TypeFloat),
 		},
 		avroSchema{Type: "float", Parameters: map[string]string{"tidb_type": "FLOAT"}},
 		float32(3.14), "float",
 	},
 	{
-		model.Column{Name: "double", Value: float64(3.14), Type: mysql.TypeDouble},
-		rowcodec.ColInfo{
-			ID:            12,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeDouble),
+		model.Column{
+			ID:        12,
+			Name:      "double",
+			Value:     float64(3.14),
+			Type:      mysql.TypeDouble,
+			FieldType: types.NewFieldType(mysql.TypeDouble),
 		},
 		avroSchema{Type: "double", Parameters: map[string]string{"tidb_type": "DOUBLE"}},
 		float64(3.14), "double",
 	},
 	{
-		model.Column{Name: "bit", Value: uint64(683), Type: mysql.TypeBit},
-		rowcodec.ColInfo{
-			ID:            13,
-			IsPKHandle:    false,
-			VirtualGenCol: false,
-			Ft:            types.NewFieldType(mysql.TypeBit),
+		model.Column{
+			ID:        13,
+			Name:      "bit",
+			Value:     uint64(683),
+			Type:      mysql.TypeBit,
+			FieldType: types.NewFieldType(mysql.TypeBit),
 		},
 		avroSchema{Type: "bytes", Parameters: map[string]string{"tidb_type": "BIT", "length": "1"}},
 		[]byte("\x02\xab"), "bytes",
@@ -582,7 +530,7 @@ func TestColumnToAvroData(t *testing.T) {
 			AvroDecimalHandlingMode:        "precise",
 			AvroBigintUnsignedHandlingMode: "long",
 		})
-		data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col, v.colInfo.Ft)
+		data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col)
 		require.NoError(t, err)
 		require.Equal(t, v.expectedData, data)
 		require.Equal(t, v.expectedType, str)
@@ -591,7 +539,7 @@ func TestColumnToAvroData(t *testing.T) {
 				AvroDecimalHandlingMode:        "string",
 				AvroBigintUnsignedHandlingMode: "long",
 			})
-			data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col, v.colInfo.Ft)
+			data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col)
 			require.NoError(t, err)
 			require.Equal(t, "129012.1230000", data)
 			require.Equal(t, "string", str)
@@ -601,7 +549,7 @@ func TestColumnToAvroData(t *testing.T) {
 				AvroDecimalHandlingMode:        "precise",
 				AvroBigintUnsignedHandlingMode: "string",
 			})
-			data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col, v.colInfo.Ft)
+			data, str, err := encoder.(*BatchEncoder).columnToAvroData(&v.col)
 			require.NoError(t, err)
 			require.Equal(t, "1", data)
 			require.Equal(t, "string", str)
@@ -675,14 +623,9 @@ func TestRowToAvroSchemaEnableChecksum(t *testing.T) {
 	t.Parallel()
 
 	event := newLargeEvent()
-	input := &avroEncodeInput{
-		event.Columns,
-		event.ColInfos,
-	}
 
-	rand.New(rand.NewSource(time.Now().Unix())).Shuffle(len(input.columns), func(i, j int) {
-		input.columns[i], input.columns[j] = input.columns[j], input.columns[i]
-		input.colInfos[i], input.colInfos[j] = input.colInfos[j], input.colInfos[i]
+	rand.New(rand.NewSource(time.Now().Unix())).Shuffle(len(event.Columns), func(i, j int) {
+		event.Columns[i], event.Columns[j] = event.Columns[j], event.Columns[i]
 	})
 
 	codecConfig := common.NewConfig(config.ProtocolAvro)
@@ -693,28 +636,24 @@ func TestRowToAvroSchemaEnableChecksum(t *testing.T) {
 
 	encoder := NewAvroEncoder(model.DefaultNamespace, nil, codecConfig)
 
-	schema, err := encoder.(*BatchEncoder).value2AvroSchema(event.Table, input)
+	schema, err := encoder.(*BatchEncoder).value2AvroSchema(event.Table, event.Columns)
 	require.NoError(t, err)
 	require.Equal(t, expectedSchemaWithExtensionEnableChecksum, indentJSON(schema))
 	_, err = goavro.NewCodec(schema)
 	require.NoError(t, err)
 
-	require.True(t, sort.IsSorted(input))
+	require.True(t, sort.IsSorted(columnArray(event.Columns)))
 }
 
 func TestRowToAvroSchema(t *testing.T) {
 	t.Parallel()
 
 	event := newLargeEvent()
-	input := &avroEncodeInput{
-		event.Columns,
-		event.ColInfos,
-	}
 
 	codecConfig := common.NewConfig(config.ProtocolAvro)
 	encoder := NewAvroEncoder(model.DefaultNamespace, nil, codecConfig)
 
-	schema, err := encoder.(*BatchEncoder).value2AvroSchema(event.Table, input)
+	schema, err := encoder.(*BatchEncoder).value2AvroSchema(event.Table, event.Columns)
 	require.NoError(t, err)
 	require.Equal(t, expectedSchemaWithoutExtension, indentJSON(schema))
 	_, err = goavro.NewCodec(schema)
@@ -723,7 +662,7 @@ func TestRowToAvroSchema(t *testing.T) {
 	codecConfig.EnableTiDBExtension = true
 	encoder = NewAvroEncoder(model.DefaultNamespace, nil, codecConfig)
 
-	schema, err = encoder.(*BatchEncoder).value2AvroSchema(event.Table, input)
+	schema, err = encoder.(*BatchEncoder).value2AvroSchema(event.Table, event.Columns)
 	require.NoError(t, err)
 	require.Equal(t, expectedSchemaWithExtension, indentJSON(schema))
 	_, err = goavro.NewCodec(schema)
@@ -734,18 +673,14 @@ func TestRowToAvroData(t *testing.T) {
 	t.Parallel()
 
 	event := newLargeEvent()
-	input := &avroEncodeInput{
-		columns:  event.Columns,
-		colInfos: event.ColInfos,
-	}
 
 	codecConfig := common.NewConfig(config.ProtocolAvro)
 	encoder := NewAvroEncoder(model.DefaultNamespace, nil, codecConfig)
 
-	data, err := encoder.(*BatchEncoder).columns2AvroData(input)
+	data, err := encoder.(*BatchEncoder).columns2AvroData(event.Columns)
 	require.NoError(t, err)
 
-	for _, col := range input.columns {
+	for _, col := range event.Columns {
 		_, exists := data[col.Name]
 		require.True(t, exists)
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/pingcap/tiflow/pkg/integrity"
 	"github.com/pingcap/tiflow/pkg/quotes"
@@ -462,6 +463,7 @@ func (r *RowChangedEvent) ApproximateBytes() int {
 
 // Column represents a column value in row changed event
 type Column struct {
+	ID        int64          `json:"-" msg:"-"`
 	Name      string         `json:"name" msg:"name"`
 	Type      byte           `json:"type" msg:"type"`
 	Charset   string         `json:"charset" msg:"charset"`
@@ -469,6 +471,8 @@ type Column struct {
 	Flag      ColumnFlagType `json:"flag" msg:"-"`
 	Value     interface{}    `json:"value" msg:"-"`
 	Default   interface{}    `json:"default" msg:"-"`
+
+	FieldType *types.FieldType `json:"-" msg:"-"`
 
 	// ApproximateBytes is approximate bytes consumed by the column.
 	ApproximateBytes int `json:"-"`
