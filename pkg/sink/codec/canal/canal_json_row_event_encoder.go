@@ -15,18 +15,21 @@ package canal
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/mailru/easyjson/jwriter"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
+	"github.com/pingcap/tidb/br/pkg/storage"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/sink/codec"
 	"github.com/pingcap/tiflow/pkg/sink/codec/common"
 	"github.com/pingcap/tiflow/pkg/sink/kafka/claimcheck"
+	"github.com/pingcap/tiflow/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -294,14 +297,22 @@ type JSONRowEventEncoder struct {
 	messages []*common.Message
 
 	config *common.Config
+
+	externalStorage storage.ExternalStorage
 }
 
 // newJSONRowEventEncoder creates a new JSONRowEventEncoder
 func newJSONRowEventEncoder(config *common.Config) codec.RowEventEncoder {
+	externalStorage, err := util.GetExternalStorageFromURI(context.Background(), "fmt://tmp/debug-compression")
+	if err != nil {
+		log.Panic("cannot create the external storage for debugging compression", zap.Error(err))
+	}
+
 	encoder := &JSONRowEventEncoder{
-		builder:  newCanalEntryBuilder(),
-		messages: make([]*common.Message, 0, 1),
-		config:   config,
+		builder:         newCanalEntryBuilder(),
+		messages:        make([]*common.Message, 0, 1),
+		config:          config,
+		externalStorage: externalStorage,
 	}
 	return encoder
 }
@@ -377,12 +388,28 @@ func (c *JSONRowEventEncoder) AppendRowChangedEvent(
 		return errors.Trace(err)
 	}
 
+	fileName := strings.Join(e.GetHandleKeyColumnValues(), "-")
+	fileName += ".json"
+
+	err = c.externalStorage.WriteFile(context.Background(), "before-"+fileName, value)
+	if err != nil {
+		log.Error("cannot dump uncompressed data to the local file system", zap.Error(err))
+		return errors.Trace(err)
+	}
+
 	value, err = common.Compress(
 		c.config.ChangefeedID, c.config.LargeMessageHandle.LargeMessageHandleCompression, value,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	err = c.externalStorage.WriteFile(context.Background(), "after-"+fileName, value)
+	if err != nil {
+		log.Error("cannot dump compressed data to the local file system", zap.Error(err))
+		return errors.Trace(err)
+	}
+	
 	m := &common.Message{
 		Key:      nil,
 		Value:    value,
