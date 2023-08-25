@@ -387,6 +387,7 @@ func (c *JSONRowEventEncoder) AppendRowChangedEvent(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	oldSize := len(value)
 
 	fileName := strings.Join(e.GetHandleKeyColumnValues(), "-")
 	fileName += ".json"
@@ -403,12 +404,15 @@ func (c *JSONRowEventEncoder) AppendRowChangedEvent(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	newSize := len(value)
 
 	err = c.externalStorage.WriteFile(context.Background(), "after-"+fileName, value)
 	if err != nil {
 		log.Error("cannot dump compressed data to the local file system", zap.Error(err))
 		return errors.Trace(err)
 	}
+
+	log.Info("compress data size compare", zap.Int("before", oldSize), zap.Int("after", newSize), zap.String("fileName", fileName))
 
 	m := &common.Message{
 		Key:      nil,
