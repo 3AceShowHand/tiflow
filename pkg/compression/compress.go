@@ -16,7 +16,7 @@ package compression
 import (
 	"bytes"
 
-	"github.com/golang/snappy"
+	"github.com/klauspost/compress/snappy"
 	"github.com/pierrec/lz4/v4"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 )
