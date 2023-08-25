@@ -303,7 +303,7 @@ type JSONRowEventEncoder struct {
 
 // newJSONRowEventEncoder creates a new JSONRowEventEncoder
 func newJSONRowEventEncoder(config *common.Config) codec.RowEventEncoder {
-	externalStorage, err := util.GetExternalStorageFromURI(context.Background(), "fmt://tmp/debug-compression")
+	externalStorage, err := util.GetExternalStorageFromURI(context.Background(), "file://tmp/debug-compression")
 	if err != nil {
 		log.Panic("cannot create the external storage for debugging compression", zap.Error(err))
 	}
@@ -409,7 +409,7 @@ func (c *JSONRowEventEncoder) AppendRowChangedEvent(
 		log.Error("cannot dump compressed data to the local file system", zap.Error(err))
 		return errors.Trace(err)
 	}
-	
+
 	m := &common.Message{
 		Key:      nil,
 		Value:    value,
