@@ -576,11 +576,8 @@ func (c *captureImpl) runEtcdWorker(
 	timerInterval time.Duration,
 	role string,
 ) error {
-	etcdWorker, err := orchestrator.NewEtcdWorker(c.EtcdClient,
+	etcdWorker := orchestrator.NewEtcdWorker(c.EtcdClient,
 		etcd.BaseKey(c.EtcdClient.GetClusterID()), reactor, reactorState, c.migrator)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	if err := etcdWorker.Run(ctx, c.session, timerInterval, role); err != nil {
 		// We check ttl of lease instead of check `session.Done`, because
 		// `session.Done` is only notified when etcd client establish a

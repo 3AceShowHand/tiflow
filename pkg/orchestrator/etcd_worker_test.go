@@ -261,12 +261,8 @@ func TestEtcdSum(t *testing.T) {
 				_ = cli.Unwrap().Close()
 			}()
 
-			etcdWorker, err := NewEtcdWorker(cdcCli, testEtcdKeyPrefix, reactor, initState,
+			etcdWorker := NewEtcdWorker(cdcCli, testEtcdKeyPrefix, reactor, initState,
 				&migrate.NoOpMigrator{})
-			if err != nil {
-				return errors.Trace(err)
-			}
-
 			return errors.Trace(etcdWorker.Run(ctx, nil, 10*time.Millisecond, "owner"))
 		})
 	}
@@ -345,14 +341,13 @@ func TestLinearizability(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	reactor, err := NewEtcdWorker(cdcCli, testEtcdKeyPrefix+"/lin", &linearizabilityReactor{
+	reactor := NewEtcdWorker(cdcCli, testEtcdKeyPrefix+"/lin", &linearizabilityReactor{
 		state:     nil,
 		tickCount: 999,
 	}, &intReactorState{
 		val:       0,
 		isUpdated: false,
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 	errg := &errgroup.Group{}
 	errg.Go(func() error {
 		return reactor.Run(ctx, nil, 10*time.Millisecond, "owner")
@@ -438,12 +433,11 @@ func TestFinished(t *testing.T) {
 	require.Nil(t, err)
 
 	prefix := testEtcdKeyPrefix + "/finished"
-	reactor, err := NewEtcdWorker(cdcCli, prefix, &finishedReactor{
+	reactor := NewEtcdWorker(cdcCli, prefix, &finishedReactor{
 		prefix: prefix,
 	}, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 	err = reactor.Run(ctx, nil, 10*time.Millisecond, "owner")
 	require.Nil(t, err)
 	resp, err := cli.Get(ctx, prefix+"/key1")
@@ -508,12 +502,11 @@ func TestCover(t *testing.T) {
 	require.Nil(t, err)
 
 	prefix := testEtcdKeyPrefix + "/cover"
-	reactor, err := NewEtcdWorker(cdcCli, prefix, &coverReactor{
+	reactor := NewEtcdWorker(cdcCli, prefix, &coverReactor{
 		prefix: prefix,
 	}, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 	err = reactor.Run(ctx, nil, 10*time.Millisecond, "owner")
 	require.Nil(t, err)
 	resp, err := cli.Get(ctx, prefix+"/key1")
@@ -587,13 +580,12 @@ func TestEmptyTxn(t *testing.T) {
 	require.Nil(t, err)
 
 	prefix := testEtcdKeyPrefix + "/empty_txn"
-	reactor, err := NewEtcdWorker(cdcCli, prefix, &emptyTxnReactor{
+	reactor := NewEtcdWorker(cdcCli, prefix, &emptyTxnReactor{
 		prefix: prefix,
 		cli:    cli,
 	}, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 	err = reactor.Run(ctx, nil, 10*time.Millisecond, "owner")
 	require.Nil(t, err)
 	resp, err := cli.Get(ctx, prefix+"/key1")
@@ -656,12 +648,11 @@ func TestEmptyOrNil(t *testing.T) {
 	require.Nil(t, err)
 
 	prefix := testEtcdKeyPrefix + "/emptyOrNil"
-	reactor, err := NewEtcdWorker(cdcCli, prefix, &emptyOrNilReactor{
+	reactor := NewEtcdWorker(cdcCli, prefix, &emptyOrNilReactor{
 		prefix: prefix,
 	}, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 	err = reactor.Run(ctx, nil, 10*time.Millisecond, "owner")
 	require.Nil(t, err)
 	resp, err := cli.Get(ctx, prefix+"/key1")
@@ -737,10 +728,9 @@ func TestModifyAfterDelete(t *testing.T) {
 		value:    []byte("modified value"),
 		waitOnCh: make(chan struct{}),
 	}
-	worker1, err := NewEtcdWorker(cdcCli1, "/test", modifyReactor, &commonReactorState{
+	worker1 := NewEtcdWorker(cdcCli1, "/test", modifyReactor, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -756,10 +746,9 @@ func TestModifyAfterDelete(t *testing.T) {
 		key:   []byte("/test/key1"),
 		value: nil, // deletion
 	}
-	worker2, err := NewEtcdWorker(cdcCli2, "/test", deleteReactor, &commonReactorState{
+	worker2 := NewEtcdWorker(cdcCli2, "/test", deleteReactor, &commonReactorState{
 		state: make(map[string]string),
 	}, &migrate.NoOpMigrator{})
-	require.Nil(t, err)
 
 	err = worker2.Run(ctx, nil, time.Millisecond*100, "owner")
 	require.Nil(t, err)

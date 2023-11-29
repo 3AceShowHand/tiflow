@@ -106,7 +106,7 @@ func NewEtcdWorker(
 	reactor Reactor,
 	initState ReactorState,
 	migrator migrate.Migrator,
-) (*EtcdWorker, error) {
+) *EtcdWorker {
 	return &EtcdWorker{
 		clusterID:  client.GetClusterID(),
 		client:     client.GetEtcdClient(),
@@ -116,7 +116,7 @@ func NewEtcdWorker(
 		prefix:     util.NormalizePrefix(prefix),
 		barrierRev: -1, // -1 indicates no barrier
 		migrator:   migrator,
-	}, nil
+	}
 }
 
 func (worker *EtcdWorker) initMetrics() {

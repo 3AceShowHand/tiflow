@@ -159,11 +159,10 @@ func TestEtcdBank(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for {
-				worker, err := NewEtcdWorker(cdcCli, bankTestPrefix, &bankReactor{
+				worker := NewEtcdWorker(cdcCli, bankTestPrefix, &bankReactor{
 					accountNumber: totalAccountNumber,
 				}, &bankReactorState{t: t, index: i, account: make([]int, totalAccountNumber)},
 					&migrate.NoOpMigrator{})
-				require.Nil(t, err)
 				err = worker.Run(ctx, nil, 100*time.Millisecond, "owner")
 				if err == nil || err.Error() == "etcdserver: request timed out" {
 					continue
