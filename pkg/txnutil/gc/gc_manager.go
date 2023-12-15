@@ -37,7 +37,7 @@ type Manager interface {
 	// TryUpdateGCSafePoint tries to update TiCDC service GC safepoint.
 	// Manager may skip update when it thinks it is too frequent.
 	// Set `forceUpdate` to force Manager update.
-	TryUpdateGCSafePoint(ctx context.Context, checkpointTs model.Ts, forceUpdate bool) error
+	TryUpdateGCSafePoint(ctx context.Context, safePoint model.Ts, forceUpdate bool) error
 	CheckStaleCheckpointTs(changefeedID model.ChangeFeedID, checkpointTs model.Ts) error
 }
 
@@ -69,18 +69,19 @@ func NewManager(gcServiceID string, pdClient pd.Client, pdClock pdutil.Clock) Ma
 }
 
 func (m *gcManager) TryUpdateGCSafePoint(
-	ctx context.Context, checkpointTs model.Ts, forceUpdate bool,
+	ctx context.Context, safePoint model.Ts, forceUpdate bool,
 ) error {
 	if time.Since(m.lastUpdatedTime) < gcSafepointUpdateInterval && !forceUpdate {
 		return nil
 	}
 	m.lastUpdatedTime = time.Now()
 
-	actual, err := SetServiceGCSafepoint(
-		ctx, m.pdClient, m.gcServiceID, m.gcTTL, checkpointTs)
+	globalGCSafepoint, err := SetServiceGCSafepoint(
+		ctx, m.pdClient, m.gcServiceID, m.gcTTL, safePoint)
 	if err != nil {
-		log.Warn("updateGCSafePoint failed",
-			zap.Uint64("safePointTs", checkpointTs),
+		log.Warn("update gc safe point failed",
+			zap.String("serviceID", m.gcServiceID),
+			zap.Uint64("safePointTs", safePoint),
 			zap.Error(err))
 		if time.Since(m.lastSucceededTime) >= time.Second*time.Duration(m.gcTTL) {
 			return cerror.ErrUpdateServiceSafepointFailed.Wrap(err)
@@ -88,20 +89,20 @@ func (m *gcManager) TryUpdateGCSafePoint(
 		return nil
 	}
 	failpoint.Inject("InjectActualGCSafePoint", func(val failpoint.Value) {
-		actual = uint64(val.(int))
+		globalGCSafepoint = uint64(val.(int))
 	})
-	if actual == checkpointTs {
-		log.Info("update gc safe point success", zap.Uint64("gcSafePointTs", checkpointTs))
-	}
-	if actual > checkpointTs {
+
+	if globalGCSafepoint > safePoint {
 		log.Warn("update gc safe point failed, the gc safe point is larger than checkpointTs",
-			zap.Uint64("actual", actual), zap.Uint64("checkpointTs", checkpointTs))
+			zap.Uint64("actual", globalGCSafepoint), zap.Uint64("checkpointTs", safePoint))
+	} else {
+		log.Info("update gc safe point success",
+			zap.Uint64("globalGCSafepoint", globalGCSafepoint), zap.Uint64("gcSafePointTs", safePoint))
 	}
-	// if the min checkpoint ts is equal to the current gc safe point, it
-	// means that the service gc safe point set by TiCDC is the min service
-	// gc safe point
-	m.isTiCDCBlockGC.Store(actual == checkpointTs)
-	m.lastSafePointTs = actual
+	// if the global gc safe point is equal to the safePoint just set by TiCDC,
+	// which means TiCDC is blocking the whole TiDB cluster GC.
+	m.isTiCDCBlockGC.Store(globalGCSafepoint == safePoint)
+	m.lastSafePointTs = globalGCSafepoint
 	m.lastSucceededTime = time.Now()
 	return nil
 }

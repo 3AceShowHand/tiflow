@@ -222,12 +222,7 @@ func (o *controllerImpl) updateGCSafepoint(
 		// (checkpointTs - 1) from TiKV, so (checkpointTs - 1) should be an upper
 		// bound for the GC safepoint.
 		gcSafepointUpperBound := minCheckpointTs - 1
-
-		var forceUpdate bool
-		if _, exist := forceUpdateMap[upstreamID]; exist {
-			forceUpdate = true
-		}
-
+		_, forceUpdate := forceUpdateMap[upstreamID]
 		err := up.GCManager.TryUpdateGCSafePoint(ctx, gcSafepointUpperBound, forceUpdate)
 		if err != nil {
 			return errors.Trace(err)
@@ -241,10 +236,10 @@ func (o *controllerImpl) updateGCSafepoint(
 // to prevent upstream TiDB GC from removing data that is still needed by TiCDC.
 // GcSafepoint is the minimum checkpointTs of all changefeeds that replicating a same upstream TiDB cluster.
 func (o *controllerImpl) calculateGCSafepoint(state *orchestrator.GlobalReactorState) (
-	map[uint64]uint64, map[uint64]interface{},
+	map[uint64]uint64, map[uint64]struct{},
 ) {
 	minCheckpointTsMap := make(map[uint64]uint64)
-	forceUpdateMap := make(map[uint64]interface{})
+	forceUpdateMap := make(map[uint64]struct{})
 
 	for changefeedID, changefeedState := range state.Changefeeds {
 		if changefeedState.Info == nil || !changefeedState.Info.NeedBlockGC() {
@@ -267,7 +262,7 @@ func (o *controllerImpl) calculateGCSafepoint(state *orchestrator.GlobalReactorS
 		// Force update when adding a new changefeed.
 		_, exist := o.changefeeds[changefeedID]
 		if !exist {
-			forceUpdateMap[upstreamID] = nil
+			forceUpdateMap[upstreamID] = struct{}{}
 		}
 	}
 

@@ -86,6 +86,7 @@ const (
 )
 
 // SetServiceGCSafepoint set a service safepoint to PD.
+// it returns the global gc safepoint, which is minimum safepoint among all services.
 func SetServiceGCSafepoint(
 	ctx context.Context, pdCli pd.Client, serviceID string, TTL int64, safePoint uint64,
 ) (minServiceGCTs uint64, err error) {
