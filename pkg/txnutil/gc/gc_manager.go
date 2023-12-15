@@ -23,7 +23,6 @@ import (
 	"github.com/pingcap/tiflow/pkg/config"
 	cerror "github.com/pingcap/tiflow/pkg/errors"
 	"github.com/pingcap/tiflow/pkg/pdutil"
-	"github.com/tikv/client-go/v2/oracle"
 	pd "github.com/tikv/pd/client"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -47,10 +46,10 @@ type gcManager struct {
 	pdClock     pdutil.Clock
 	gcTTL       int64
 
-	lastUpdatedTime   time.Time
-	lastSucceededTime time.Time
-	lastSafePointTs   uint64
-	isTiCDCBlockGC    atomic.Bool
+	lastUpdatedTime       time.Time
+	lastSucceededTime     time.Time
+	lastGlobalGCSafepoint uint64
+	isTiCDCBlockGC        atomic.Bool
 }
 
 // NewManager creates a new Manager.
@@ -102,7 +101,7 @@ func (m *gcManager) TryUpdateGCSafePoint(
 	// if the global gc safe point is equal to the safePoint just set by TiCDC,
 	// which means TiCDC is blocking the whole TiDB cluster GC.
 	m.isTiCDCBlockGC.Store(globalGCSafepoint == safePoint)
-	m.lastSafePointTs = globalGCSafepoint
+	m.lastGlobalGCSafepoint = globalGCSafepoint
 	m.lastSucceededTime = time.Now()
 	return nil
 }
@@ -111,27 +110,33 @@ func (m *gcManager) CheckStaleCheckpointTs(
 	changefeedID model.ChangeFeedID, checkpointTs model.Ts,
 ) error {
 	gcSafepointUpperBound := checkpointTs - 1
-	if m.isTiCDCBlockGC.Load() {
-		pdTime := m.pdClock.CurrentTime()
-		if pdTime.Sub(
-			oracle.GetTimeFromTS(gcSafepointUpperBound),
-		) > time.Duration(m.gcTTL)*time.Second {
-			return cerror.ErrGCTTLExceeded.
-				GenWithStackByArgs(
-					checkpointTs,
-					changefeedID,
-				)
-		}
-	} else {
-		// if `isTiCDCBlockGC` is false, it means there is another service gc
-		// point less than the min checkpoint ts.
-		if gcSafepointUpperBound < m.lastSafePointTs {
-			return cerror.ErrSnapshotLostByGC.
-				GenWithStackByArgs(
-					checkpointTs,
-					m.lastSafePointTs,
-				)
-		}
+	// the data required by the TiCDC is already GCed,
+	// this makes the changefeed cannot make progress anymore.
+	if gcSafepointUpperBound < m.lastGlobalGCSafepoint {
+		return cerror.ErrSnapshotLostByGC.GenWithStackByArgs(checkpointTs, m.lastGlobalGCSafepoint)
 	}
-	return nil
+
+	//if m.isTiCDCBlockGC.Load() {
+	//	pdTime := m.pdClock.CurrentTime()
+	//	if pdTime.Sub(
+	//		oracle.GetTimeFromTS(gcSafepointUpperBound),
+	//	) > time.Duration(m.gcTTL)*time.Second {
+	//		return cerror.ErrGCTTLExceeded.
+	//			GenWithStackByArgs(
+	//				checkpointTs,
+	//				changefeedID,
+	//			)
+	//	}
+	//} else {
+	//	// if `isTiCDCBlockGC` is false, it means there is another service gc
+	//	// point less than the min checkpoint ts.
+	//	if gcSafepointUpperBound < m.lastGlobalGCSafepoint {
+	//		return cerror.ErrSnapshotLostByGC.
+	//			GenWithStackByArgs(
+	//				checkpointTs,
+	//				m.lastGlobalGCSafepoint,
+	//			)
+	//	}
+	//}
+	//return nil
 }
