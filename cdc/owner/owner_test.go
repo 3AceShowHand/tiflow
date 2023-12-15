@@ -47,7 +47,7 @@ type mockManager struct {
 }
 
 func (m *mockManager) CheckStaleCheckpointTs(
-	ctx context.Context, changefeedID model.ChangeFeedID, checkpointTs model.Ts,
+	_ model.ChangeFeedID, _ model.Ts,
 ) error {
 	return cerror.ErrStartTsBeforeGC.GenWithStackByArgs()
 }
@@ -203,7 +203,7 @@ func TestCreateRemoveChangefeed(t *testing.T) {
 	up, _ := owner.upstreamManager.Get(changefeedInfo.UpstreamID)
 	mockedManager := &mockManager{Manager: up.GCManager}
 	up.GCManager = mockedManager
-	err = up.GCManager.CheckStaleCheckpointTs(ctx, changefeedID, 0)
+	err = up.GCManager.CheckStaleCheckpointTs(changefeedID, 0)
 	require.NotNil(t, err)
 
 	// this tick create remove changefeed patches

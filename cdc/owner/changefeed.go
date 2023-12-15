@@ -329,14 +329,12 @@ func (c *changefeed) handleWarning(err error) {
 	})
 }
 
-func (c *changefeed) checkStaleCheckpointTs(
-	ctx cdcContext.Context, checkpointTs uint64,
-) error {
+func (c *changefeed) checkStaleCheckpointTs(checkpointTs uint64) error {
 	if c.latestInfo.NeedBlockGC() {
 		failpoint.Inject("InjectChangefeedFastFailError", func() error {
 			return cerror.ErrStartTsBeforeGC.FastGen("InjectChangefeedFastFailError")
 		})
-		if err := c.upstream.GCManager.CheckStaleCheckpointTs(ctx, c.id, checkpointTs); err != nil {
+		if err := c.upstream.GCManager.CheckStaleCheckpointTs(c.id, checkpointTs); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -352,7 +350,7 @@ func (c *changefeed) tick(ctx cdcContext.Context,
 	preCheckpointTs := c.latestInfo.GetCheckpointTs(c.latestStatus)
 	// checkStaleCheckpointTs must be called before `feedStateManager.ShouldRunning()`
 	// to ensure all changefeeds, no matter whether they are running or not, will be checked.
-	if err := c.checkStaleCheckpointTs(ctx, preCheckpointTs); err != nil {
+	if err := c.checkStaleCheckpointTs(preCheckpointTs); err != nil {
 		return 0, 0, errors.Trace(err)
 	}
 
