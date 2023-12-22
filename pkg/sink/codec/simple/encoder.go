@@ -15,7 +15,8 @@ package simple
 
 import (
 	"context"
-	"encoding/json"
+	//"encoding/json"
+	"github.com/goccy/go-json"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/log"
