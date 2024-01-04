@@ -181,7 +181,12 @@ func newDMLMessageMap(
 			"current":   int64(event.Checksum.Current),
 			"previous":  int64(event.Checksum.Previous),
 		}
-		m["checksum"] = goavro.Union("com.pingcap.simple.avro.Checksum", cc)
+		genericMap, ok := genericMapPool.Get().(map[string]interface{})
+		if !ok {
+			genericMap = make(map[string]interface{})
+		}
+		genericMap["com.pingcap.simple.avro.Checksum"] = cc
+		m["checksum"] = genericMap
 	}
 
 	if event.IsInsert() {
@@ -214,11 +219,16 @@ func newDMLMessageMap(
 		log.Panic("invalid event type, this should not hit", zap.Any("event", event))
 	}
 
-	return goavro.Union("com.pingcap.simple.avro.DML", m), nil
+	genericMap, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		genericMap = make(map[string]interface{})
+	}
+	genericMap["com.pingcap.simple.avro.DML"] = m
+	return genericMap, nil
 }
 
 var (
-	columnMapPool = sync.Pool{
+	genericMapPool = sync.Pool{
 		New: func() any {
 			return make(map[string]interface{})
 		},
@@ -241,14 +251,21 @@ func collectColumns(
 			return nil, err
 		}
 
-		unionMap, ok := columnMapPool.Get().(map[string]interface{})
+		genericMap, ok := genericMapPool.Get().(map[string]interface{})
 		if !ok {
-			unionMap = make(map[string]interface{})
+			genericMap = make(map[string]interface{})
 		}
-		unionMap[avroType] = value
-		result[col.Name] = unionMap
+		genericMap[avroType] = value
+		result[col.Name] = genericMap
 	}
-	return goavro.Union("map", result), nil
+
+	genericMap, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		genericMap = make(map[string]interface{})
+	}
+	genericMap["map"] = result
+
+	return genericMap, nil
 }
 
 func newTableSchemaFromAvroNative(native map[string]interface{}) *TableSchema {

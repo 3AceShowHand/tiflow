@@ -192,8 +192,10 @@ func (m *avroMarshaller) MarshalRowChangedEvent(
 		for _, col := range dataMap {
 			colMap := col.(map[string]interface{})
 			clear(colMap)
-			columnMapPool.Put(col)
+			genericMapPool.Put(col)
 		}
+		clear(dataMap)
+		genericMapPool.Put(dataMap)
 	}
 	oldDataMap := eventMap["com.pingcap.simple.avro.DML"].(map[string]interface{})["old"]
 	if oldDataMap != nil {
@@ -201,9 +203,20 @@ func (m *avroMarshaller) MarshalRowChangedEvent(
 		for _, col := range oldDataMap {
 			colMap := col.(map[string]interface{})
 			clear(colMap)
-			columnMapPool.Put(col)
+			genericMapPool.Put(col)
 		}
+		clear(oldDataMap)
+		genericMapPool.Put(oldDataMap)
 	}
+	checksumMap := eventMap["com.pingcap.simple.avro.DML"].(map[string]interface{})["checksum"]
+	if checksumMap != nil {
+		genericMap := checksumMap.(map[string]interface{})["com.pingcap.simple.avro.Checksum"].(map[string]interface{})
+		clear(genericMap)
+		genericMapPool.Put(genericMap)
+	}
+
+	clear(eventMap)
+	genericMapPool.Put(eventMap)
 
 	return value, nil
 }
