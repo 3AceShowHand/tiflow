@@ -37,25 +37,30 @@ func newTableSchemaMap(tableInfo *model.TableInfo) interface{} {
 
 	columnsSchema := make([]interface{}, 0, len(tableInfo.Columns))
 	for _, col := range tableInfo.Columns {
-		mysqlType := map[string]interface{}{
-			"mysqlType": types.TypeToStr(col.GetType(), col.GetCharset()),
-			"charset":   col.GetCharset(),
-			"collate":   col.GetCollate(),
-			// todo: add detail description about length,
-			// for the text type, default length is 4294967295,
-			// it's out of the range, convert it to int32, make it -1.
-			"length":   int32(col.GetFlen()),
-			"decimal":  col.GetDecimal(),
-			"elements": col.GetElems(),
-			"unsigned": mysql.HasUnsignedFlag(col.GetFlag()),
-			"zerofill": mysql.HasZerofillFlag(col.GetFlag()),
+		mysqlType, ok := genericMapPool.Get().(map[string]interface{})
+		if !ok {
+			mysqlType = make(map[string]interface{})
 		}
-		column := map[string]interface{}{
-			"name":     col.Name.O,
-			"dataType": mysqlType,
-			"nullable": !mysql.HasNotNullFlag(col.GetFlag()),
-			"default":  nil,
+		mysqlType["mysqlType"] = types.TypeToStr(col.GetType(), col.GetCharset())
+		mysqlType["charset"] = col.GetCharset()
+		mysqlType["collate"] = col.GetCollate()
+		// todo: add detail description about length,
+		// for the text type, default length is 4294967295,
+		// it's out of the range, convert it to int32, make it -1.
+		mysqlType["length"] = int32(col.GetFlen())
+		mysqlType["decimal"] = col.GetDecimal()
+		mysqlType["elements"] = col.GetElems()
+		mysqlType["unsigned"] = mysql.HasUnsignedFlag(col.GetFlag())
+		mysqlType["zerofill"] = mysql.HasZerofillFlag(col.GetFlag())
+
+		column, ok := genericMapPool.Get().(map[string]interface{})
+		if !ok {
+			column = make(map[string]interface{})
 		}
+		column["name"] = col.Name.O
+		column["dataType"] = mysqlType
+		column["nullable"] = !mysql.HasNotNullFlag(col.GetFlag())
+		column["default"] = nil
 		defaultValue := entry.GetColumnDefaultValue(col)
 		if defaultValue != nil {
 			// according to TiDB source code, the default value is converted to string if not nil.
@@ -117,25 +122,39 @@ func newTableSchemaMap(tableInfo *model.TableInfo) interface{} {
 }
 
 func newResolvedMessageMap(ts uint64) interface{} {
-	return goavro.Union("com.pingcap.simple.avro.Watermark", map[string]interface{}{
-		"version":  defaultVersion,
-		"type":     string(WatermarkType),
-		"commitTs": int64(ts),
-		"buildTs":  time.Now().UnixMilli(),
-	})
+	result, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		result = make(map[string]interface{})
+	}
+	result["version"] = defaultVersion
+	result["type"] = string(WatermarkType)
+	result["commitTs"] = int64(ts)
+	result["buildTs"] = time.Now().UnixMilli()
+
+	genericMap, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		genericMap = make(map[string]interface{})
+	}
+	genericMap["com.pingcap.simple.avro.Watermark"] = result
+	return genericMap
 }
 
 func newBootstrapMessageMap(tableInfo *model.TableInfo) interface{} {
-	if tableInfo == nil || tableInfo.TableInfo == nil {
-		return nil
+	result, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		result = make(map[string]interface{})
 	}
-	result := map[string]interface{}{
-		"version":     defaultVersion,
-		"type":        string(BootstrapType),
-		"tableSchema": newTableSchemaMap(tableInfo),
-		"buildTs":     time.Now().UnixMilli(),
+	result["version"] = defaultVersion
+	result["type"] = string(BootstrapType)
+	result["tableSchema"] = newTableSchemaMap(tableInfo)
+	result["buildTs"] = time.Now().UnixMilli()
+
+	generic, ok := genericMapPool.Get().(map[string]interface{})
+	if !ok {
+		generic = make(map[string]interface{})
 	}
-	return goavro.Union("com.pingcap.simple.avro.Bootstrap", result)
+	generic["com.pingcap.simple.avro.Bootstrap"] = result
+	return generic
 }
 
 func newDDLMessageMap(ddl *model.DDLEvent) interface{} {

@@ -150,6 +150,14 @@ func (m *avroMarshaller) MarshalCheckpoint(ts uint64) ([]byte, error) {
 	if err != nil {
 		return nil, errors.WrapError(errors.ErrEncodeFailed, err)
 	}
+
+	generic := msg.(map[string]interface{})
+	real := generic["com.pingcap.simple.avro.Watermark"].(map[string]interface{})
+	clear(real)
+	clear(generic)
+	genericMapPool.Put(real)
+	genericMapPool.Put(generic)
+
 	return result, nil
 }
 
