@@ -64,8 +64,8 @@ func NewSaramaConfig(ctx context.Context, o *Options) (*sarama.Config, error) {
 	// make sure sarama producer flush messages as soon as possible.
 	config.Producer.Flush.Bytes = 0
 	config.Producer.Flush.Messages = 0
-	config.Producer.Flush.Frequency = time.Duration(0)
-	config.Producer.Flush.MaxMessages = o.MaxMessages
+	config.Producer.Flush.Frequency = time.Duration(5 * time.Millisecond)
+	config.Producer.Flush.MaxMessages = 0
 
 	config.Net.DialTimeout = o.DialTimeout
 	config.Net.WriteTimeout = o.WriteTimeout
