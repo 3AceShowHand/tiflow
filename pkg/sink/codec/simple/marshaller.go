@@ -16,7 +16,8 @@ package simple
 import (
 	_ "embed"
 	// "encoding/json"
-	"github.com/goccy/go-json"
+	// "github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 
 	"github.com/linkedin/goavro/v2"
 	"github.com/pingcap/tiflow/cdc/model"
