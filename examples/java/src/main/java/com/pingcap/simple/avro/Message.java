@@ -16,6 +16,7 @@ import org.apache.avro.message.SchemaStore;
 import java.io.File;
 import java.io.IOException;
 
+
 @org.apache.avro.specific.AvroGenerated
 public class Message extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
   private static final long serialVersionUID = -2961983711880424101L;

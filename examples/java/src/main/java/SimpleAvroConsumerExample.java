@@ -92,11 +92,11 @@ public class SimpleAvroConsumerExample {
                     Decoder decoder = DecoderFactory.get().binaryDecoder(avroData, null);
 
 
-                    DatumReader<Message> reader = new SpecificDatumReader<>(Message.class);
-                    Message message = reader.read(null, decoder);
+//                    DatumReader<Message> reader = new SpecificDatumReader<>(Message.class);
+//                    Message message = reader.read(null, decoder);
 
-//                    GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
-//                    GenericRecord message = datumReader.read(null, decoder);
+                    GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
+                    GenericRecord message = datumReader.read(null, decoder);
 
                     log.info("message = {}", message);
 
