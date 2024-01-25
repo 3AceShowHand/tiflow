@@ -45,9 +45,10 @@ public class SimpleAvroConsumerExample {
 
         Properties props = new Properties();
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
-        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, "simple-avro-consumer-example-sadfsdf");
+        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, "simple-avro-consumer-example-sagasga");
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(props);
 
@@ -58,48 +59,21 @@ public class SimpleAvroConsumerExample {
             while (true) {
                 ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(100));
                 for (ConsumerRecord<byte[], byte[]> record : records) {
-                    byte[] avroData = new byte[28];
-                    avroData[0] = 18;
-                    avroData[1] = 0;
-                    avroData[2] = 2;
-                    avroData[3] = 18;
-                    avroData[4] = 87;
-                    avroData[5] = 65;
-                    avroData[6] = 84;
-                    avroData[7] = 69;
-                    avroData[8] = 82;
-                    avroData[9] = 77;
-                    avroData[10] = 65;
-                    avroData[11] = 82;
-                    avroData[12] = 75;
-                    avroData[13] = (byte) 132;
-                    avroData[14] = (byte) 128;
-                    avroData[15] = (byte) 128;
-                    avroData[16] = (byte) 203;
-                    avroData[17] = (byte) 169;
-                    avroData[18] = (byte) 187;
-                    avroData[19] = (byte) 186;
-                    avroData[20] = (byte) 177;
-                    avroData[21] = (byte) 12;
-                    avroData[22] = (byte) 228;
-                    avroData[23] = (byte) 152;
-                    avroData[24] = (byte) 137;
-                    avroData[25] = (byte) 134;
-                    avroData[26] = (byte) 166;
-                    avroData[27] = (byte) 99;
+                    ByteArrayInputStream inputStream = new ByteArrayInputStream(record.value());
+                    Decoder decoder = DecoderFactory.get().binaryDecoder(inputStream, null);
 
-                    //                    ByteArrayInputStream inputStream = new ByteArrayInputStream(record.value());
-                    Decoder decoder = DecoderFactory.get().binaryDecoder(avroData, null);
+                    DatumReader<Message> reader = new SpecificDatumReader<>(schema, Message.getClassSchema());;
 
 
 //                    DatumReader<Message> reader = new SpecificDatumReader<>(Message.class);
 //                    Message message = reader.read(null, decoder);
 
-                    GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
+                    GenericDatumReader<GenericRecord> datumReader = new GenericDatumReader<>(Message.getClassSchema(), schema);
                     GenericRecord message = datumReader.read(null, decoder);
 
                     log.info("message = {}", message);
 
+//                    DatumReader<Message> reader = new SpecificDatumReader<>(schema, Message.getClassSchema());
 
 
 
