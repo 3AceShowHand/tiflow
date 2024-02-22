@@ -50,7 +50,8 @@ func NewKafkaDMLSink(
 	}
 
 	options := kafka.NewOptions()
-	if err := options.Apply(changefeedID, sinkURI, replicaConfig); err != nil {
+	err = options.Apply(changefeedID, sinkURI, replicaConfig)
+	if err != nil {
 		return nil, cerror.WrapError(cerror.ErrKafkaInvalidConfig, err)
 	}
 
