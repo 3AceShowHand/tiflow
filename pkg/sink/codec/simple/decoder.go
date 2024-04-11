@@ -114,6 +114,35 @@ func (d *Decoder) HasNext() (model.MessageType, bool, error) {
 	d.value = nil
 
 	if d.msg.Data != nil || d.msg.Old != nil {
+		if d.msg.Data != nil && d.msg.Old == nil {
+			id := d.msg.Data["c_id"].(uint64)
+			w_id := d.msg.Data["c_w_id"].(uint64)
+			d_id := d.msg.Data["c_d_id"].(uint64)
+			if id == 123 && d_id == 2 && w_id == 1 {
+				log.Info("insert target message found", zap.Any("message", d.msg))
+			}
+		}
+		if d.msg.Data == nil && d.msg.Old != nil {
+			id := d.msg.Old["c_id"].(uint64)
+			w_id := d.msg.Old["c_w_id"].(uint64)
+			d_id := d.msg.Old["c_d_id"].(uint64)
+			if id == 123 && d_id == 2 && w_id == 1 {
+				log.Info("delete target message found", zap.Any("message", d.msg))
+			}
+		}
+		if d.msg.Data != nil && d.msg.Old != nil {
+			id := d.msg.Data["c_id"].(uint64)
+			w_id := d.msg.Data["c_w_id"].(uint64)
+			d_id := d.msg.Data["c_d_id"].(uint64)
+
+			old_id := d.msg.Old["c_id"].(uint64)
+			old_w_id := d.msg.Old["c_w_id"].(uint64)
+			old_d_id := d.msg.Old["c_d_id"].(uint64)
+			if (id == 123 && d_id == 2 && w_id == 1) || (old_id == 123 && old_d_id == 2 && old_w_id == 1) {
+				log.Info("update target message found", zap.Any("message", d.msg))
+			}
+		}
+
 		return model.MessageTypeRow, true, nil
 	}
 
