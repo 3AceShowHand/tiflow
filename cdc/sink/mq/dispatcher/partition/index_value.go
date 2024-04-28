@@ -15,21 +15,29 @@ package partition
 
 import (
 	"sync"
+	"time"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/hash"
+	"go.uber.org/zap"
 )
 
 // IndexValueDispatcher is a partition dispatcher which dispatches events based on the index value.
 type IndexValueDispatcher struct {
 	hasher *hash.PositionInertia
 	lock   sync.Mutex
+
+	memo        map[int32]uint64
+	lastLogTime time.Time
 }
 
 // NewIndexValueDispatcher creates a IndexValueDispatcher.
 func NewIndexValueDispatcher() *IndexValueDispatcher {
 	return &IndexValueDispatcher{
-		hasher: hash.NewPositionInertia(),
+		hasher:      hash.NewPositionInertia(),
+		memo:        make(map[int32]uint64),
+		lastLogTime: time.Now(),
 	}
 }
 
@@ -56,5 +64,13 @@ func (r *IndexValueDispatcher) DispatchRowChangedEvent(row *model.RowChangedEven
 			r.hasher.Write([]byte(col.Name), []byte(model.ColumnValueString(col.Value)))
 		}
 	}
-	return int32(r.hasher.Sum32() % uint32(partitionNum))
+	result := int32(r.hasher.Sum32() % uint32(partitionNum))
+	r.memo[result]++
+
+	if time.Since(r.lastLogTime) > 10*time.Second {
+		r.lastLogTime = time.Now()
+		log.Info("IndexValueDispatcher memo", zap.Any("memo", r.memo))
+	}
+
+	return result
 }
