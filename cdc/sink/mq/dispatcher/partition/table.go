@@ -15,9 +15,12 @@ package partition
 
 import (
 	"sync"
+	"time"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tiflow/cdc/model"
 	"github.com/pingcap/tiflow/pkg/hash"
+	"go.uber.org/zap"
 )
 
 // TableDispatcher is a partition dispatcher which dispatches events
@@ -25,12 +28,17 @@ import (
 type TableDispatcher struct {
 	hasher *hash.PositionInertia
 	lock   sync.Mutex
+
+	memo        map[int32]uint64
+	lastLogTime time.Time
 }
 
 // NewTableDispatcher creates a TableDispatcher.
 func NewTableDispatcher() *TableDispatcher {
 	return &TableDispatcher{
-		hasher: hash.NewPositionInertia(),
+		hasher:      hash.NewPositionInertia(),
+		memo:        make(map[int32]uint64),
+		lastLogTime: time.Now(),
 	}
 }
 
@@ -42,5 +50,13 @@ func (t *TableDispatcher) DispatchRowChangedEvent(row *model.RowChangedEvent, pa
 	t.hasher.Reset()
 	// distribute partition by table
 	t.hasher.Write([]byte(row.Table.Schema), []byte(row.Table.Table))
-	return int32(t.hasher.Sum32() % uint32(partitionNum))
+	result := int32(t.hasher.Sum32() % uint32(partitionNum))
+	t.memo[result]++
+
+	if time.Since(t.lastLogTime) > 10*time.Second {
+		t.lastLogTime = time.Now()
+		log.Info("TableDispatcher memo", zap.Any("memo", t.memo))
+	}
+
+	return result
 }
