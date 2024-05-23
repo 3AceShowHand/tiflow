@@ -165,7 +165,9 @@ func (s *dmlSink) WriteEvents(txns ...*dmlsink.CallbackableEvent[*model.SingleTa
 			txn.Callback()
 			continue
 		}
+
 		rowCallback := toRowCallback(txn.Callback, uint64(len(txn.Event.Rows)))
+		mqEvents := make(map[model.TopicPartitionKey][]*dmlsink.RowChangeCallbackableEvent)
 		for _, row := range txn.Event.Rows {
 			topic := s.alive.eventRouter.GetTopicForRowChange(row)
 			partitionNum, err := s.alive.topicManager.GetPartitionNum(s.ctx, topic)
@@ -191,21 +193,20 @@ func (s *dmlSink) WriteEvents(txns ...*dmlsink.CallbackableEvent[*model.SingleTa
 				return errors.Trace(err)
 			}
 
-			event := mqEvent{
-				key: model.TopicPartitionKey{
-					Topic:          topic,
-					Partition:      index,
-					PartitionKey:   key,
-					TotalPartition: partitionNum,
-				},
-				rowEvent: &dmlsink.RowChangeCallbackableEvent{
-					Event:     row,
-					Callback:  rowCallback,
-					SinkState: txn.SinkState,
-				},
+			partitionKey := model.TopicPartitionKey{
+				Topic:          topic,
+				Partition:      index,
+				PartitionKey:   key,
+				TotalPartition: partitionNum,
 			}
-			s.alive.worker.writeEvent(event)
+			rowEvent := &dmlsink.RowChangeCallbackableEvent{
+				Event:     row,
+				Callback:  rowCallback,
+				SinkState: txn.SinkState,
+			}
+			mqEvents[partitionKey] = append(mqEvents[partitionKey], rowEvent)
 		}
+		s.alive.worker.writeEvent(mqEvents)
 	}
 	return nil
 }
