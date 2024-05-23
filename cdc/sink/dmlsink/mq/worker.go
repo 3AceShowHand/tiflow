@@ -99,6 +99,13 @@ func newWorker(
 	return w
 }
 
+func (w *worker) writeEvent(event mqEvent) {
+	// This never be blocked because this is an unbounded channel.
+	// We already limit the memory usage by MemoryQuota at SinkManager level.
+	// So it is safe to send the event to a unbounded channel here.
+	w.msgChan.In() <- event
+}
+
 // run starts a loop that keeps collecting, sorting and sending messages
 // until it encounters an error or is interrupted.
 func (w *worker) run(ctx context.Context) (retErr error) {
@@ -301,7 +308,7 @@ func (w *worker) sendMessages(ctx context.Context) error {
 				start := time.Now()
 				if err = w.statistics.RecordBatchExecution(func() (int, int64, error) {
 					message.SetPartitionKey(future.Key.PartitionKey)
-					if err := w.producer.AsyncSendMessage(
+					if err = w.producer.AsyncSendMessage(
 						ctx,
 						future.Key.Topic,
 						future.Key.Partition,

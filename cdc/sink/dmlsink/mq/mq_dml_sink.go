@@ -191,10 +191,7 @@ func (s *dmlSink) WriteEvents(txns ...*dmlsink.CallbackableEvent[*model.SingleTa
 				return errors.Trace(err)
 			}
 
-			// This never be blocked because this is an unbounded channel.
-			// We already limit the memory usage by MemoryQuota at SinkManager level.
-			// So it is safe to send the event to a unbounded channel here.
-			s.alive.worker.msgChan.In() <- mqEvent{
+			event := mqEvent{
 				key: model.TopicPartitionKey{
 					Topic:          topic,
 					Partition:      index,
@@ -207,6 +204,7 @@ func (s *dmlSink) WriteEvents(txns ...*dmlsink.CallbackableEvent[*model.SingleTa
 					SinkState: txn.SinkState,
 				},
 			}
+			s.alive.worker.writeEvent(event)
 		}
 	}
 	return nil
