@@ -386,7 +386,7 @@ type eventFeedSession struct {
 	// will be re-requested.
 	errCh *chann.DrainableChann[regionErrorInfo]
 	// The channel to schedule scanning and requesting regions in a specified range.
-	requestRangeCh *chann.DrainableChann[rangeRequestTask]
+	requestRangeCh *chann.DrainableChann[regionspan.ComparableSpan]
 
 	rangeLock *regionspan.RegionRangeLock
 
@@ -398,10 +398,6 @@ type eventFeedSession struct {
 	// use sync.Pool to store resolved ts event only, because resolved ts event
 	// has the same size and generate cycle.
 	resolvedTsPool sync.Pool
-}
-
-type rangeRequestTask struct {
-	span regionspan.ComparableSpan
 }
 
 func newEventFeedSession(
@@ -438,7 +434,7 @@ func newEventFeedSession(
 }
 
 func (s *eventFeedSession) eventFeed(ctx context.Context) error {
-	s.requestRangeCh = chann.NewDrainableChann[rangeRequestTask]()
+	s.requestRangeCh = chann.NewDrainableChann[regionspan.ComparableSpan]()
 	s.regionCh = chann.NewDrainableChann[singleRegionInfo]()
 	s.regionRouter = chann.NewDrainableChann[singleRegionInfo]()
 	s.errCh = chann.NewDrainableChann[regionErrorInfo]()
@@ -466,7 +462,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case task := <-s.requestRangeCh.Out():
+			case totalSpan := <-s.requestRangeCh.Out():
 				// divideAndSendEventFeedToRegions could be blocked for some time,
 				// since it must wait for the region lock available. In order to
 				// consume region range request from `requestRangeCh` as soon as
@@ -476,7 +472,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 				// Besides the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
-					return s.divideAndSendEventFeedToRegions(ctx, task.span)
+					return s.divideAndSendEventFeedToRegions(ctx, totalSpan)
 				})
 			}
 		}
@@ -496,7 +492,7 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 		}
 	})
 
-	s.requestRangeCh.In() <- rangeRequestTask{span: s.totalSpan}
+	s.requestRangeCh.In() <- s.totalSpan
 
 	log.Info("event feed started",
 		zap.String("namespace", s.changefeed.Namespace),
@@ -514,9 +510,8 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 func (s *eventFeedSession) scheduleDivideRegionAndRequest(
 	ctx context.Context, span regionspan.ComparableSpan,
 ) {
-	task := rangeRequestTask{span: span}
 	select {
-	case s.requestRangeCh.In() <- task:
+	case s.requestRangeCh.In() <- span:
 	case <-ctx.Done():
 	}
 }
