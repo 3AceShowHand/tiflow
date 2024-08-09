@@ -374,6 +374,7 @@ func allocateSessionID() uint64 {
 }
 
 type eventFeedSession struct {
+	sessionID                  string
 	goroutineGaugeNormal       prometheus.Gauge
 	goroutineGaugeDivideRange  prometheus.Gauge
 	goroutineGaugeReceiveEvent prometheus.Gauge
@@ -433,6 +434,7 @@ func newEventFeedSession(
 		client.changefeed.Namespace+"."+client.changefeed.ID)
 	sessionID := strconv.FormatUint(allocateSessionID(), 10)
 	return &eventFeedSession{
+		sessionID:                  sessionID,
 		goroutineGaugeNormal:       goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "normal"),
 		goroutineGaugeDivideRange:  goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "divide_range"),
 		goroutineGaugeReceiveEvent: goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "receive_event"),
@@ -472,6 +474,10 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 		s.regionCh.CloseAndDrain()
 		s.errCh.CloseAndDrain()
 		s.requestRangeCh.CloseAndDrain()
+
+		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "normal")
+		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "divide_range")
+		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "receive_event")
 	}()
 
 	g, ctx := errgroup.WithContext(ctx)
