@@ -74,7 +74,7 @@ const (
 	// don't need to force reload region anymore.
 	regionScheduleReload = false
 
-	scanRegionsConcurrency = 1024
+	scanRegionsConcurrency = 10
 )
 
 // time interval to force kv client to terminate gRPC stream and reconnect
@@ -734,11 +734,30 @@ func (s *eventFeedSession) requestRegionToStore(
 				zap.Uint64("storeID", storeID),
 				zap.String("store", storeAddr),
 				zap.Uint64("streamID", stream.id))
+			start := time.Now()
+			log.Info("try to start receive event from stream",
+				zap.String("namespace", s.changefeed.Namespace),
+				zap.String("changefeed", s.changefeed.ID),
+				zap.Int64("tableID", s.tableID),
+				zap.String("tableName", s.tableName),
+				zap.String("store", stream.addr),
+				zap.Uint64("storeID", stream.storeID),
+				zap.Uint64("streamID", stream.id),
+				zap.Time("start", start))
 			g.Go(func() error {
 				defer s.goroutineGaugeReceiveEvent.Dec()
 				s.goroutineGaugeReceiveEvent.Inc()
 				return s.receiveFromStream(ctx, stream)
 			})
+			log.Info("start receive event from stream",
+				zap.String("namespace", s.changefeed.Namespace),
+				zap.String("changefeed", s.changefeed.ID),
+				zap.Int64("tableID", s.tableID),
+				zap.String("tableName", s.tableName),
+				zap.String("store", stream.addr),
+				zap.Uint64("storeID", stream.storeID),
+				zap.Uint64("streamID", stream.id),
+				zap.Duration("duration", time.Since(start)))
 		}
 
 		state := newRegionFeedState(sri, requestID)
