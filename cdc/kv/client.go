@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -366,7 +367,15 @@ func allocateStreamID() uint64 {
 	return atomic.AddUint64(&currentStreamID, 1)
 }
 
+var currentSessionID uint64 = 0
+
+func allocateSessionID() uint64 {
+	return atomic.AddUint64(&currentSessionID, 1)
+}
+
 type eventFeedSession struct {
+	goroutineGauge prometheus.Gauge
+
 	client     *CDCClient
 	startTs    model.Ts
 	changefeed model.ChangeFeedID
@@ -420,7 +429,9 @@ func newEventFeedSession(
 	rangeLock := regionlock.NewRegionRangeLock(
 		id, totalSpan.StartKey, totalSpan.EndKey, startTs,
 		client.changefeed.Namespace+"."+client.changefeed.ID)
+	sessionID := strconv.FormatUint(allocateSessionID(), 10)
 	return &eventFeedSession{
+		goroutineGauge:    goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID),
 		client:            client,
 		startTs:           startTs,
 		changefeed:        client.changefeed,
@@ -461,14 +472,27 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(scanRegionsConcurrency)
-
-	g.Go(func() error { return s.dispatchRequest(ctx) })
-
-	g.Go(func() error { return s.requestRegionToStore(ctx, g) })
-
-	g.Go(func() error { return s.logSlowRegions(ctx) })
+	g.Go(func() error {
+		defer s.goroutineGauge.Dec()
+		s.goroutineGauge.Inc()
+		return s.dispatchRequest(ctx)
+	})
 
 	g.Go(func() error {
+		defer s.goroutineGauge.Dec()
+		s.goroutineGauge.Inc()
+		return s.requestRegionToStore(ctx, g)
+	})
+
+	g.Go(func() error {
+		defer s.goroutineGauge.Dec()
+		s.goroutineGauge.Inc()
+		return s.logSlowRegions(ctx)
+	})
+
+	g.Go(func() error {
+		defer s.goroutineGauge.Dec()
+		s.goroutineGauge.Inc()
 		for {
 			select {
 			case <-ctx.Done():
@@ -484,6 +508,8 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 				// Besides the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
+					defer s.goroutineGauge.Dec()
+					s.goroutineGauge.Inc()
 					return s.divideAndSendEventFeedToRegions(ctx, task.span)
 				})
 			}
@@ -491,6 +517,8 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 	})
 
 	g.Go(func() error {
+		defer s.goroutineGauge.Dec()
+		s.goroutineGauge.Inc()
 		for {
 			select {
 			case <-ctx.Done():
@@ -664,6 +692,7 @@ func (s *eventFeedSession) requestRegionToStore(
 		if !ok || stream.isCanceled.Load() {
 			if ok {
 				// If the stream is canceled, we need to delete it from the cache and close it.
+				// One stream exist, but canceled, only by the region worker meet some region error.
 				s.deleteStream(stream)
 			}
 			stream, err = s.client.newStream(ctx, storeAddr, storeID)
@@ -702,6 +731,8 @@ func (s *eventFeedSession) requestRegionToStore(
 				zap.String("store", storeAddr),
 				zap.Uint64("streamID", stream.id))
 			g.Go(func() error {
+				defer s.goroutineGauge.Dec()
+				s.goroutineGauge.Inc()
 				return s.receiveFromStream(ctx, stream)
 			})
 		}

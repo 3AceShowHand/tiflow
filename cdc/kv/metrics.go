@@ -28,6 +28,15 @@ var (
 			Name:      "event_feed_error_count",
 			Help:      "The number of error return by tikv",
 		}, []string{"type"})
+
+	goroutineGauge = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "ticdc",
+			Subsystem: "kvclient",
+			Name:      "goroutine_count",
+			Help:      "The number of running goroutines",
+		}, []string{"namespace", "changefeed", "sessionID", "type"})
+
 	eventFeedGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Namespace: "ticdc",
@@ -115,6 +124,7 @@ var (
 // InitMetrics registers all metrics in the kv package
 func InitMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(eventFeedErrorCounter)
+	registry.MustRegister(goroutineGauge)
 	registry.MustRegister(scanRegionsDuration)
 	registry.MustRegister(eventSize)
 	registry.MustRegister(eventFeedGauge)
