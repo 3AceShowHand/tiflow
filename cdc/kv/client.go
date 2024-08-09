@@ -474,10 +474,13 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 		s.regionCh.CloseAndDrain()
 		s.errCh.CloseAndDrain()
 		s.requestRangeCh.CloseAndDrain()
-
-		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "normal")
-		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "divide_range")
-		goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "receive_event")
+		goroutineGauge.DeletePartialMatch(prometheus.Labels{
+			"namespace":  s.client.changefeed.Namespace,
+			"changefeed": s.client.changefeed.ID,
+		})
+		//goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "normal")
+		//goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "divide_range")
+		//goroutineGauge.DeleteLabelValues(s.client.changefeed.Namespace, s.client.changefeed.ID, s.sessionID, "receive_event")
 	}()
 
 	g, ctx := errgroup.WithContext(ctx)
