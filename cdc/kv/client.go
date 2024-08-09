@@ -374,7 +374,9 @@ func allocateSessionID() uint64 {
 }
 
 type eventFeedSession struct {
-	goroutineGauge prometheus.Gauge
+	goroutineGaugeNormal       prometheus.Gauge
+	goroutineGaugeDivideRange  prometheus.Gauge
+	goroutineGaugeReceiveEvent prometheus.Gauge
 
 	client     *CDCClient
 	startTs    model.Ts
@@ -431,20 +433,22 @@ func newEventFeedSession(
 		client.changefeed.Namespace+"."+client.changefeed.ID)
 	sessionID := strconv.FormatUint(allocateSessionID(), 10)
 	return &eventFeedSession{
-		goroutineGauge:    goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID),
-		client:            client,
-		startTs:           startTs,
-		changefeed:        client.changefeed,
-		tableID:           client.tableID,
-		tableName:         client.tableName,
-		storeStreamsCache: make(map[string]*eventFeedStream),
-		totalSpan:         totalSpan,
-		eventCh:           eventCh,
-		rangeLock:         rangeLock,
-		lockResolver:      lockResolver,
-		regionChSizeGauge: clientChannelSize.WithLabelValues("region"),
-		errChSizeGauge:    clientChannelSize.WithLabelValues("err"),
-		rangeChSizeGauge:  clientChannelSize.WithLabelValues("range"),
+		goroutineGaugeNormal:       goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "normal"),
+		goroutineGaugeDivideRange:  goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "divide_range"),
+		goroutineGaugeReceiveEvent: goroutineGauge.WithLabelValues(client.changefeed.Namespace, client.changefeed.ID, sessionID, "receive_event"),
+		client:                     client,
+		startTs:                    startTs,
+		changefeed:                 client.changefeed,
+		tableID:                    client.tableID,
+		tableName:                  client.tableName,
+		storeStreamsCache:          make(map[string]*eventFeedStream),
+		totalSpan:                  totalSpan,
+		eventCh:                    eventCh,
+		rangeLock:                  rangeLock,
+		lockResolver:               lockResolver,
+		regionChSizeGauge:          clientChannelSize.WithLabelValues("region"),
+		errChSizeGauge:             clientChannelSize.WithLabelValues("err"),
+		rangeChSizeGauge:           clientChannelSize.WithLabelValues("range"),
 		resolvedTsPool: sync.Pool{
 			New: func() any {
 				return &regionStatefulEvent{
@@ -473,26 +477,26 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(scanRegionsConcurrency)
 	g.Go(func() error {
-		defer s.goroutineGauge.Dec()
-		s.goroutineGauge.Inc()
+		defer s.goroutineGaugeNormal.Dec()
+		s.goroutineGaugeNormal.Inc()
 		return s.dispatchRequest(ctx)
 	})
 
 	g.Go(func() error {
-		defer s.goroutineGauge.Dec()
-		s.goroutineGauge.Inc()
+		defer s.goroutineGaugeNormal.Dec()
+		s.goroutineGaugeNormal.Inc()
 		return s.requestRegionToStore(ctx, g)
 	})
 
 	g.Go(func() error {
-		defer s.goroutineGauge.Dec()
-		s.goroutineGauge.Inc()
+		defer s.goroutineGaugeNormal.Dec()
+		s.goroutineGaugeNormal.Inc()
 		return s.logSlowRegions(ctx)
 	})
 
 	g.Go(func() error {
-		defer s.goroutineGauge.Dec()
-		s.goroutineGauge.Inc()
+		defer s.goroutineGaugeNormal.Dec()
+		s.goroutineGaugeNormal.Inc()
 		for {
 			select {
 			case <-ctx.Done():
@@ -508,8 +512,8 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 				// Besides the count or frequency of range request is limited,
 				// we use ephemeral goroutine instead of permanent goroutine.
 				g.Go(func() error {
-					defer s.goroutineGauge.Dec()
-					s.goroutineGauge.Inc()
+					defer s.goroutineGaugeDivideRange.Dec()
+					s.goroutineGaugeDivideRange.Inc()
 					return s.divideAndSendEventFeedToRegions(ctx, task.span)
 				})
 			}
@@ -517,8 +521,8 @@ func (s *eventFeedSession) eventFeed(ctx context.Context) error {
 	})
 
 	g.Go(func() error {
-		defer s.goroutineGauge.Dec()
-		s.goroutineGauge.Inc()
+		defer s.goroutineGaugeNormal.Dec()
+		s.goroutineGaugeNormal.Inc()
 		for {
 			select {
 			case <-ctx.Done():
@@ -731,8 +735,8 @@ func (s *eventFeedSession) requestRegionToStore(
 				zap.String("store", storeAddr),
 				zap.Uint64("streamID", stream.id))
 			g.Go(func() error {
-				defer s.goroutineGauge.Dec()
-				s.goroutineGauge.Inc()
+				defer s.goroutineGaugeReceiveEvent.Dec()
+				s.goroutineGaugeReceiveEvent.Inc()
 				return s.receiveFromStream(ctx, stream)
 			})
 		}
