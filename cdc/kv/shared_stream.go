@@ -50,6 +50,8 @@ type requestedStream struct {
 
 	// tableExclusives means one GRPC stream is exclusive by one table.
 	tableExclusives chan tableExclusive
+
+	statefulEventCache []statefulEvent
 }
 
 type tableExclusive struct {
@@ -58,7 +60,7 @@ type tableExclusive struct {
 }
 
 func newStream(ctx context.Context, c *SharedClient, g *errgroup.Group, r *requestedStore) *requestedStream {
-	stream := newRequestedStream(streamIDGen.Add(1))
+	stream := newRequestedStream(streamIDGen.Add(1), len(c.workers))
 	stream.logRegionDetails = c.logRegionDetails
 	stream.requests = chann.NewAutoDrainChann[regionInfo]()
 
@@ -119,8 +121,11 @@ func newStream(ctx context.Context, c *SharedClient, g *errgroup.Group, r *reque
 	return stream
 }
 
-func newRequestedStream(streamID uint64) *requestedStream {
-	stream := &requestedStream{streamID: streamID}
+func newRequestedStream(streamID uint64, workerCount int) *requestedStream {
+	stream := &requestedStream{
+		streamID:           streamID,
+		statefulEventCache: make([]statefulEvent, workerCount),
+	}
 	stream.requestedRegions.m = make(map[SubscriptionID]map[uint64]*regionFeedState)
 	return stream
 }
@@ -508,30 +513,29 @@ func (s *requestedStream) sendResolvedTs(
 	ctx context.Context, c *SharedClient, resolvedTs *cdcpb.ResolvedTs,
 	tableSubID SubscriptionID,
 ) error {
-	var subscriptionID SubscriptionID
-	if tableSubID == invalidSubscriptionID {
+	subscriptionID := tableSubID
+	if subscriptionID == invalidSubscriptionID {
 		subscriptionID = SubscriptionID(resolvedTs.RequestId)
-	} else {
-		subscriptionID = tableSubID
 	}
-	sfEvents := make([]statefulEvent, len(c.workers))
+
 	for _, regionID := range resolvedTs.Regions {
 		slot := hashRegionID(regionID, len(c.workers))
-		if sfEvents[slot].stream == nil {
-			sfEvents[slot] = newResolvedTsBatch(resolvedTs.Ts, s)
+		if s.statefulEventCache[slot].stream == nil {
+			s.statefulEventCache[slot] = newResolvedTsBatch(resolvedTs.Ts, s)
 		}
-		x := &sfEvents[slot].resolvedTsBatch
+		x := &s.statefulEventCache[slot].resolvedTsBatch
 		if state := s.getState(subscriptionID, regionID); state != nil {
 			x.regions = append(x.regions, state)
 		}
 	}
 
-	for i, sfEvent := range sfEvents {
+	for i, sfEvent := range s.statefulEventCache {
 		if len(sfEvent.resolvedTsBatch.regions) > 0 {
 			sfEvent.stream = s
 			if err := c.workers[i].sendEvent(ctx, sfEvent); err != nil {
 				return err
 			}
+			s.statefulEventCache[i] = statefulEvent{}
 		}
 	}
 	return nil
