@@ -764,7 +764,7 @@ func (p *processor) initDDLHandler(ctx context.Context) error {
 	serverCfg := config.GetGlobalServerConfig()
 	changefeedID := model.DefaultChangeFeedID(p.changefeedID.ID + "_processor_ddl_puller")
 	ddlPuller := puller.NewDDLJobPuller(
-		ctx, p.upstream, ddlStartTs, serverCfg, changefeedID, schemaStorage, p.filter,
+		p.upstream, ddlStartTs, serverCfg, changefeedID, schemaStorage, p.filter,
 	)
 	p.ddlHandler.r = &ddlHandler{puller: ddlPuller, schemaStorage: schemaStorage}
 	return nil

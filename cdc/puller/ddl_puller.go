@@ -85,7 +85,6 @@ type ddlJobPullerImpl struct {
 // NewDDLJobPuller creates a new NewDDLJobPuller,
 // which fetches ddl events starting from checkpointTs.
 func NewDDLJobPuller(
-	ctx context.Context,
 	up *upstream.Upstream,
 	checkpointTs uint64,
 	cfg *config.ServerConfig,
@@ -657,7 +656,7 @@ type ddlPullerImpl struct {
 }
 
 // NewDDLPuller return a puller for DDL Event
-func NewDDLPuller(ctx context.Context,
+func NewDDLPuller(
 	up *upstream.Upstream,
 	startTs uint64,
 	changefeed model.ChangeFeedID,
@@ -669,7 +668,7 @@ func NewDDLPuller(ctx context.Context,
 	if up.KVStorage != nil {
 		changefeed.ID += "_owner_ddl_puller"
 		puller = NewDDLJobPuller(
-			ctx, up, startTs, config.GetGlobalServerConfig(),
+			up, startTs, config.GetGlobalServerConfig(),
 			changefeed, schemaStorage, filter)
 	}
 
