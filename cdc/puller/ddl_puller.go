@@ -108,10 +108,9 @@ func NewDDLJobPuller(
 		schemaStorage: schemaStorage,
 		kvStorage:     kvStorage,
 		filter:        filter,
+		sorter:        memorysorter.NewEntrySorter(changefeed),
 		outputCh:      make(chan *model.DDLJobEntry, defaultPullerOutputChanSize),
 	}
-	ddlJobPuller.sorter = memorysorter.NewEntrySorter(changefeed)
-
 	grpcPool := sharedconn.NewConnAndClientPool(up.SecurityConfig, kv.GetGlobalGrpcMetrics())
 	client := kv.NewSharedClient(
 		changefeed, cfg, ddlPullerFilterLoop,
