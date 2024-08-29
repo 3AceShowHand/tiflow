@@ -75,7 +75,6 @@ var (
 var (
 	// unreachable error, only used in unit test
 	errUnreachable = errors.New("kv client unreachable error")
-	logPanic       = log.Panic
 )
 
 var (
@@ -756,7 +755,7 @@ func (s *SharedClient) handleResolveLockTasks(ctx context.Context) error {
 	}
 
 	doResolve := func(regionID uint64, state *regionlock.LockedRangeState, targetTs uint64) {
-		if state.ResolvedTs.Load() > targetTs || !state.Initialzied.Load() {
+		if state.ResolvedTs.Load() > targetTs || !state.Initialized.Load() {
 			return
 		}
 		if lastRun, ok := resolveLastRun[regionID]; ok {
@@ -866,7 +865,7 @@ func (s *SharedClient) newSubscribedTable(
 
 	rt.tryResolveLock = func(regionID uint64, state *regionlock.LockedRangeState) {
 		targetTs := rt.staleLocksTargetTs.Load()
-		if state.ResolvedTs.Load() < targetTs && state.Initialzied.Load() {
+		if state.ResolvedTs.Load() < targetTs && state.Initialized.Load() {
 			s.resolveLockTaskCh.In() <- resolveLockTask{
 				regionID: regionID,
 				targetTs: targetTs,

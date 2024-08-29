@@ -40,9 +40,6 @@ const (
 type RegionFeedEvent struct {
 	Val      *RawKVEntry
 	Resolved *ResolvedSpans
-
-	// Additional debug info, not used
-	RegionID uint64
 }
 
 // GetValue returns the underlying value

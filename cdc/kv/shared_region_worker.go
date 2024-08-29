@@ -283,7 +283,7 @@ func handleEventEntry(
 		case cdcpb.Event_COMMITTED:
 			resolvedTs := state.getLastResolvedTs()
 			if entry.CommitTs <= resolvedTs {
-				logPanic("The CommitTs must be greater than the resolvedTs",
+				log.Panic("The CommitTs must be greater than the resolvedTs",
 					zap.String("EventType", "COMMITTED"),
 					zap.Uint64("CommitTs", entry.CommitTs),
 					zap.Uint64("resolvedTs", resolvedTs),
@@ -326,7 +326,7 @@ func handleEventEntry(
 			// NOTE: state.getLastResolvedTs() will never less than startTs.
 			resolvedTs := state.getLastResolvedTs()
 			if entry.CommitTs <= resolvedTs {
-				logPanic("The CommitTs must be greater than the resolvedTs",
+				log.Panic("The CommitTs must be greater than the resolvedTs",
 					zap.String("EventType", "COMMIT"),
 					zap.Uint64("CommitTs", entry.CommitTs),
 					zap.Uint64("resolvedTs", resolvedTs),
@@ -366,7 +366,6 @@ func assembleRowEvent(regionID uint64, entry *cdcpb.Event_Row) (model.RegionFeed
 	}
 
 	revent := model.RegionFeedEvent{
-		RegionID: regionID,
 		Val: &model.RawKVEntry{
 			OpType:   opType,
 			Key:      entry.Key,
