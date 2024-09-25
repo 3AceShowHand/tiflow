@@ -83,3 +83,24 @@ if [ "$SINK_TYPE" == "mysql" ]; then
 fi
 
 stop_tidb_cluster
+
+## case 3
+run_sql "set global sql_mode='NO_AUTO_VALUE_ON_ZERO';" ${UP_TIDB_HOST} ${UP_TIDB_PORT}
+run_sql "set global sql_mode='NO_AUTO_VALUE_ON_ZERO';" ${DOWN_TIDB_HOST} ${DOWN_TIDB_PORT}
+
+start_ts=$(run_cdc_cli_tso_query ${UP_PD_HOST_1} ${UP_PD_PORT_1})
+run_cdc_server --workdir $WORK_DIR --binary $CDC_BINARY
+
+SINK_URI="mysql://root@127.0.0.1:3306/?max-txn-row=1"
+run_cdc_cli changefeed create --start-ts=$start_ts --sink-uri="$SINK_URI" --changefeed-id="test-3"
+
+run_sql "use test; create table t3(a int primary key, b int auto_increment); insert into t3 values(1, null);" ${UP_TIDB_HOST} ${UP_TIDB_PORT}
+
+if [ "$SINK_TYPE" == "mysql" ]; then
+	check_table_exists "test.t3" ${DOWN_TIDB_HOST} ${DOWN_TIDB_PORT}
+	sleep 10
+	run_sql "SELECT * from test.t3" ${DOWN_TIDB_HOST} ${DOWN_TIDB_PORT} &&
+		check_contains "b: 1"
+fi
+
+## case 4
