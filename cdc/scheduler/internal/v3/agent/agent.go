@@ -210,29 +210,21 @@ func (a *agent) Tick(ctx context.Context) (*schedulepb.Barrier, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentReceiveMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-		Observe(time.Since(start).Seconds())
 
 	startHandleMessage := time.Now()
 	outboundMessages, barrier := a.handleMessage(inboundMessages)
 	agentHandleMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
 		Observe(time.Since(startHandleMessage).Seconds())
 
-	startPoll := time.Now()
 	responses, err := a.tableM.poll(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentPollDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-		Observe(time.Since(startPoll).Seconds())
 
-	startSend := time.Now()
 	outboundMessages = append(outboundMessages, responses...)
 	if err = a.sendMsgs(ctx, outboundMessages); err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentSendMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-		Observe(time.Since(startSend).Seconds())
 
 	return barrier, nil
 }
