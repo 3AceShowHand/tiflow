@@ -239,11 +239,7 @@ func (a *agent) handleLivenessUpdate(liveness model.Liveness) {
 }
 
 func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.Message, barrier *schedulepb.Barrier) {
-	startHandleMessage := time.Now()
-	var (
-		heartbeatCount       int
-		dispatchRequestCount int
-	)
+	var heartbeatCount int
 	for _, message := range msg {
 		ownerCaptureID := message.GetFrom()
 		header := message.GetHeader()
@@ -259,13 +255,9 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 		case schedulepb.MsgHeartbeat:
 			heartbeatCount++
 			var reMsg *schedulepb.Message
-			start := time.Now()
 			reMsg, barrier = a.handleMessageHeartbeat(message.GetHeartbeat())
-			agentHandleHeartbeatMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-				Observe(time.Since(start).Seconds())
 			result = append(result, reMsg)
 		case schedulepb.MsgDispatchTableRequest:
-			dispatchRequestCount++
 			a.handleMessageDispatchTableRequest(message.DispatchTableRequest, processorEpoch)
 		default:
 			log.Warn("schedulerv3: unknown message received",
@@ -277,17 +269,21 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 	}
 	agentHandleHeartbeatMessageCount.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
 		Observe(float64(heartbeatCount))
-	agentHandleMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-		Observe(time.Since(startHandleMessage).Seconds())
-	log.Info("agent handle messages",
-		zap.Duration("duration", time.Since(startHandleMessage)),
-		zap.Int("heartbeatCount", heartbeatCount), zap.Int("dispatchRequestCount", dispatchRequestCount))
 	return
 }
 
 func (a *agent) handleMessageHeartbeat(request *schedulepb.Heartbeat) (*schedulepb.Message, *schedulepb.Barrier) {
+	start := time.Now()
 	allTables := a.tableM.getAllTableSpans()
 	result := make([]tablepb.TableStatus, 0, allTables.Len())
+
+	defer func() {
+		agentHandleHeartbeatMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
+			Observe(time.Since(start).Seconds())
+
+		agentCollectHeartbeatTableCount.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
+			Observe(float64(len(result)))
+	}()
 
 	allTables.Ascend(func(span tablepb.Span, table *tableSpan) bool {
 		status := table.getTableSpanStatus(request.CollectStats)
@@ -309,7 +305,6 @@ func (a *agent) handleMessageHeartbeat(request *schedulepb.Heartbeat) (*schedule
 			result = append(result, status)
 		}
 	}
-
 	if request.IsStopping {
 		a.handleLivenessUpdate(model.LivenessCaptureStopping)
 	}
@@ -328,7 +323,6 @@ func (a *agent) handleMessageHeartbeat(request *schedulepb.Heartbeat) (*schedule
 		zap.String("namespace", a.ChangeFeedID.Namespace),
 		zap.String("changefeed", a.ChangeFeedID.ID),
 		zap.Any("message", message))
-
 	return message, request.GetBarrier()
 }
 
@@ -414,9 +408,9 @@ func (a *agent) handleMessageDispatchTableRequest(
 // Close implement agent interface
 func (a *agent) Close() error {
 	agentTickDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
-	agentHandleMessageDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
 	agentHandleHeartbeatMessageDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
 	agentHandleHeartbeatMessageCount.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
+	agentCollectHeartbeatTableCount.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
 	log.Debug("schedulerv3: agent closed",
 		zap.String("capture", a.CaptureID),
 		zap.String("namespace", a.ChangeFeedID.Namespace),

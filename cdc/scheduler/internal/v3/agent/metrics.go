@@ -24,14 +24,6 @@ var (
 			Help:      "Bucketed histogram of agent tick processor time (s).",
 			Buckets:   prometheus.ExponentialBuckets(0.01 /* 10 ms */, 2, 18),
 		}, []string{"namespace", "changefeed"})
-	agentHandleMessageDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "ticdc",
-			Subsystem: "scheduler",
-			Name:      "agent_handle_message_duration",
-			Help:      "Bucketed histogram of agent tick processor time (s).",
-			Buckets:   prometheus.ExponentialBuckets(0.01 /* 10 ms */, 2, 18),
-		}, []string{"namespace", "changefeed"})
 	agentHandleHeartbeatMessageDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "ticdc",
@@ -47,11 +39,19 @@ var (
 			Name:      "agent_handle_heartbeat_message_count",
 			Help:      "Bucketed histogram of agent handle heartbeat count on each tick.",
 		}, []string{"namespace", "changefeed"})
+
+	agentCollectHeartbeatTableCount = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "ticdc",
+			Subsystem: "scheduler",
+			Name:      "agent_collect_heartbeat_count",
+			Help:      "Bucketed histogram of agent collect heartbeat count.",
+		}, []string{"namespace", "changefeed"})
 )
 
 func InitMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(agentTickDuration)
-	registry.MustRegister(agentHandleMessageDuration)
 	registry.MustRegister(agentHandleHeartbeatMessageDuration)
 	registry.MustRegister(agentHandleHeartbeatMessageCount)
+	registry.MustRegister(agentCollectHeartbeatTableCount)
 }
