@@ -250,6 +250,7 @@ func (a *agent) handleLivenessUpdate(liveness model.Liveness) {
 }
 
 func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.Message, barrier *schedulepb.Barrier) {
+	var heartbeatCount int
 	for _, message := range msg {
 		ownerCaptureID := message.GetFrom()
 		header := message.GetHeader()
@@ -263,8 +264,12 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 
 		switch message.GetMsgType() {
 		case schedulepb.MsgHeartbeat:
+			heartbeatCount++
 			var reMsg *schedulepb.Message
+			start := time.Now()
 			reMsg, barrier = a.handleMessageHeartbeat(message.GetHeartbeat())
+			agentHandleHeartbeatMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
+				Observe(time.Since(start).Seconds())
 			result = append(result, reMsg)
 		case schedulepb.MsgDispatchTableRequest:
 			a.handleMessageDispatchTableRequest(message.DispatchTableRequest, processorEpoch)
@@ -276,6 +281,9 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 				zap.Any("message", message))
 		}
 	}
+	agentHandleHeartbeatMessageCount.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
+		Observe(float64(heartbeatCount))
+
 	return
 }
 
@@ -407,6 +415,10 @@ func (a *agent) handleMessageDispatchTableRequest(
 
 // Close implement agent interface
 func (a *agent) Close() error {
+	agentTickDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
+	agentHandleMessageDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
+	agentHandleHeartbeatMessageDuration.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
+	agentHandleHeartbeatMessageCount.DeleteLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID)
 	log.Debug("schedulerv3: agent closed",
 		zap.String("capture", a.CaptureID),
 		zap.String("namespace", a.ChangeFeedID.Namespace),
