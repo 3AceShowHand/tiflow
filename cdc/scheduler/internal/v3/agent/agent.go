@@ -211,10 +211,7 @@ func (a *agent) Tick(ctx context.Context) (*schedulepb.Barrier, error) {
 		return nil, errors.Trace(err)
 	}
 
-	startHandleMessage := time.Now()
 	outboundMessages, barrier := a.handleMessage(inboundMessages)
-	agentHandleMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
-		Observe(time.Since(startHandleMessage).Seconds())
 
 	responses, err := a.tableM.poll(ctx)
 	if err != nil {
@@ -242,7 +239,11 @@ func (a *agent) handleLivenessUpdate(liveness model.Liveness) {
 }
 
 func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.Message, barrier *schedulepb.Barrier) {
-	var heartbeatCount int
+	startHandleMessage := time.Now()
+	var (
+		heartbeatCount       int
+		dispatchRequestCount int
+	)
 	for _, message := range msg {
 		ownerCaptureID := message.GetFrom()
 		header := message.GetHeader()
@@ -264,6 +265,7 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 				Observe(time.Since(start).Seconds())
 			result = append(result, reMsg)
 		case schedulepb.MsgDispatchTableRequest:
+			dispatchRequestCount++
 			a.handleMessageDispatchTableRequest(message.DispatchTableRequest, processorEpoch)
 		default:
 			log.Warn("schedulerv3: unknown message received",
@@ -275,7 +277,11 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 	}
 	agentHandleHeartbeatMessageCount.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
 		Observe(float64(heartbeatCount))
-
+	agentHandleMessageDuration.WithLabelValues(a.ChangeFeedID.Namespace, a.ChangeFeedID.ID).
+		Observe(time.Since(startHandleMessage).Seconds())
+	log.Info("agent handle messages",
+		zap.Duration("duration", time.Since(startHandleMessage)),
+		zap.Int("heartbeatCount", heartbeatCount), zap.Int("dispatchRequestCount", dispatchRequestCount))
 	return
 }
 
