@@ -15,6 +15,7 @@ package agent
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -275,6 +276,8 @@ func (a *agent) handleMessage(msg []*schedulepb.Message) (result []*schedulepb.M
 func (a *agent) handleMessageHeartbeat(request *schedulepb.Heartbeat) (*schedulepb.Message, *schedulepb.Barrier) {
 	start := time.Now()
 	allTables := a.tableM.getAllTableSpans()
+
+	var mutex sync.Mutex
 	result := make([]tablepb.TableStatus, 0, allTables.Len())
 
 	defer func() {
@@ -285,26 +288,41 @@ func (a *agent) handleMessageHeartbeat(request *schedulepb.Heartbeat) (*schedule
 			Observe(float64(len(result)))
 	}()
 
+	var wg sync.WaitGroup
 	allTables.Ascend(func(span tablepb.Span, table *tableSpan) bool {
-		status := table.getTableSpanStatus(request.CollectStats)
-		if status.Checkpoint.CheckpointTs > status.Checkpoint.ResolvedTs {
-			log.Warn("schedulerv3: CheckpointTs is greater than ResolvedTs",
-				zap.String("namespace", a.ChangeFeedID.Namespace),
-				zap.String("changefeed", a.ChangeFeedID.ID),
-				zap.String("span", span.String()))
-		}
-		if table.task != nil && table.task.IsRemove {
-			status.State = tablepb.TableStateStopping
-		}
-		result = append(result, status)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status := table.getTableSpanStatus(request.CollectStats)
+			if status.Checkpoint.CheckpointTs > status.Checkpoint.ResolvedTs {
+				log.Warn("schedulerv3: CheckpointTs is greater than ResolvedTs",
+					zap.String("namespace", a.ChangeFeedID.Namespace),
+					zap.String("changefeed", a.ChangeFeedID.ID),
+					zap.String("span", span.String()))
+			}
+			if table.task != nil && table.task.IsRemove {
+				status.State = tablepb.TableStateStopping
+			}
+			mutex.Lock()
+			result = append(result, status)
+			mutex.Unlock()
+		}()
 		return true
 	})
 	for _, span := range request.GetSpans() {
 		if _, ok := allTables.Get(span); !ok {
-			status := a.tableM.getTableSpanStatus(span, request.CollectStats)
-			result = append(result, status)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				status := a.tableM.getTableSpanStatus(span, request.CollectStats)
+				mutex.Lock()
+				result = append(result, status)
+				mutex.Unlock()
+			}()
 		}
 	}
+	wg.Wait()
+
 	if request.IsStopping {
 		a.handleLivenessUpdate(model.LivenessCaptureStopping)
 	}
