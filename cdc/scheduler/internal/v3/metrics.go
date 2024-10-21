@@ -14,6 +14,7 @@
 package v3
 
 import (
+	"github.com/pingcap/tiflow/cdc/scheduler/internal/v3/agent"
 	"github.com/pingcap/tiflow/cdc/scheduler/internal/v3/member"
 	"github.com/pingcap/tiflow/cdc/scheduler/internal/v3/replication"
 	"github.com/pingcap/tiflow/cdc/scheduler/internal/v3/scheduler"
@@ -25,4 +26,5 @@ func InitMetrics(registry *prometheus.Registry) {
 	member.InitMetrics(registry)
 	replication.InitMetrics(registry)
 	scheduler.InitMetrics(registry)
+	agent.InitMetrics(registry)
 }
