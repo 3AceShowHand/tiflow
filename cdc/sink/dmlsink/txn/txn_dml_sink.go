@@ -111,11 +111,11 @@ func newSink(ctx context.Context,
 		BlockStrategy: causality.BlockStrategyWaitEmpty,
 	})
 
-	g, ctx1 := errgroup.WithContext(ctx)
+	g, ctx := errgroup.WithContext(ctx)
 	for i, backend := range backends {
-		w := newWorker(ctx1, changefeedID, i, backend, len(backends))
+		w := newWorker(changefeedID, i, backend, len(backends))
 		txnCh := sink.alive.conflictDetector.GetOutChByCacheID(int64(i))
-		g.Go(func() error { return w.runLoop(txnCh) })
+		g.Go(func() error { return w.runLoop(ctx, txnCh) })
 		sink.workers = append(sink.workers, w)
 	}
 

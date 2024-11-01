@@ -28,7 +28,6 @@ import (
 )
 
 type worker struct {
-	ctx         context.Context
 	changefeed  string
 	workerCount int
 
@@ -50,13 +49,12 @@ type worker struct {
 	lastSlowConflictDetectLog map[model.TableID]time.Time
 }
 
-func newWorker(ctx context.Context, changefeedID model.ChangeFeedID,
+func newWorker(changefeedID model.ChangeFeedID,
 	ID int, backend backend, workerCount int,
 ) *worker {
 	wid := fmt.Sprintf("%d", ID)
 
 	return &worker{
-		ctx:         ctx,
 		changefeed:  fmt.Sprintf("%s.%s", changefeedID.Namespace, changefeedID.ID),
 		workerCount: workerCount,
 
@@ -78,7 +76,7 @@ func newWorker(ctx context.Context, changefeedID model.ChangeFeedID,
 }
 
 // Run a loop.
-func (w *worker) runLoop(txnCh <-chan causality.TxnWithNotifier[*txnEvent]) error {
+func (w *worker) runLoop(ctx context.Context, txnCh <-chan causality.TxnWithNotifier[*txnEvent]) error {
 	defer func() {
 		if err := w.backend.Close(); err != nil {
 			log.Info("Transaction dmlSink backend close fail",
@@ -97,7 +95,7 @@ func (w *worker) runLoop(txnCh <-chan causality.TxnWithNotifier[*txnEvent]) erro
 	start := time.Now()
 	for {
 		select {
-		case <-w.ctx.Done():
+		case <-ctx.Done():
 			log.Info("Transaction dmlSink worker exits as canceled",
 				zap.String("changefeedID", w.changefeed),
 				zap.Int("workerID", w.ID))
@@ -136,7 +134,7 @@ func (w *worker) runLoop(txnCh <-chan causality.TxnWithNotifier[*txnEvent]) erro
 					}
 				}
 				// needFlush must be true here, so we can do flush.
-				if err := w.doFlush(); err != nil {
+				if err := w.doFlush(ctx); err != nil {
 					log.Error("Transaction dmlSink worker exits unexpectly",
 						zap.String("changefeedID", w.changefeed),
 						zap.Int("workerID", w.ID),
@@ -191,13 +189,13 @@ func (w *worker) onEvent(txn *txnEvent, postTxnExecuted func()) bool {
 }
 
 // doFlush flushes the backend.
-func (w *worker) doFlush() error {
+func (w *worker) doFlush(ctx context.Context) error {
 	if w.hasPending {
 		start := time.Now()
 		defer func() {
 			w.metricTxnWorkerFlushDuration.Observe(time.Since(start).Seconds())
 		}()
-		if err := w.backend.Flush(w.ctx); err != nil {
+		if err := w.backend.Flush(ctx); err != nil {
 			log.Warn("Transaction dmlSink backend flush fail",
 				zap.String("changefeedID", w.changefeed),
 				zap.Int("workerID", w.ID),
