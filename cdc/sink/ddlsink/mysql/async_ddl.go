@@ -177,7 +177,7 @@ func (m *DDLSink) doCheck(ctx context.Context, table model.TableName) (done bool
 	rows, err := m.db.QueryContext(ctx, fmt.Sprintf(checkRunningAddIndexSQL, table.Schema, table.Table))
 	defer func() {
 		if rows != nil {
-			_ = rows.Err()
+			_ = rows.Close()
 		}
 	}()
 	if err != nil {
