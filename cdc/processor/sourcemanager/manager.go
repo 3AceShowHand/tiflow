@@ -61,6 +61,8 @@ type SourceManager struct {
 	// Used to indicate whether the changefeed is in BDR mode.
 	bdrMode bool
 
+	skipLightningPhysicalImported bool
+
 	splitUpdateMode PullerSplitUpdateMode
 
 	enableTableMonitor bool
@@ -75,9 +77,10 @@ func New(
 	engine sorter.SortEngine,
 	splitUpdateMode PullerSplitUpdateMode,
 	bdrMode bool,
+	skipLightningPhysicalImported bool,
 	enableTableMonitor bool,
 ) *SourceManager {
-	return newSourceManager(changefeedID, up, mg, engine, splitUpdateMode, bdrMode, enableTableMonitor)
+	return newSourceManager(changefeedID, up, mg, engine, splitUpdateMode, bdrMode, skipLightningPhysicalImported, enableTableMonitor)
 }
 
 // NewForTest creates a new source manager for testing.
@@ -109,23 +112,25 @@ func newSourceManager(
 	engine sorter.SortEngine,
 	splitUpdateMode PullerSplitUpdateMode,
 	bdrMode bool,
+	skipLightningPhysicalImported bool,
 	enableTableMonitor bool,
 ) *SourceManager {
 	mgr := &SourceManager{
-		ready:              make(chan struct{}),
-		changefeedID:       changefeedID,
-		up:                 up,
-		mg:                 mg,
-		engine:             engine,
-		splitUpdateMode:    splitUpdateMode,
-		bdrMode:            bdrMode,
-		enableTableMonitor: enableTableMonitor,
+		ready:                         make(chan struct{}),
+		changefeedID:                  changefeedID,
+		up:                            up,
+		mg:                            mg,
+		engine:                        engine,
+		splitUpdateMode:               splitUpdateMode,
+		bdrMode:                       bdrMode,
+		skipLightningPhysicalImported: skipLightningPhysicalImported,
+		enableTableMonitor:            enableTableMonitor,
 	}
 
 	serverConfig := config.GetGlobalServerConfig()
 	grpcPool := sharedconn.NewConnAndClientPool(mgr.up.SecurityConfig, kv.GetGlobalGrpcMetrics())
 	client := kv.NewSharedClient(
-		mgr.changefeedID, serverConfig, mgr.bdrMode,
+		mgr.changefeedID, serverConfig, mgr.bdrMode, mgr.skipLightningPhysicalImported,
 		mgr.up.PDClient, grpcPool, mgr.up.RegionCache, mgr.up.PDClock,
 		txnutil.NewLockerResolver(mgr.up.KVStorage.(tikv.Storage), mgr.changefeedID),
 	)

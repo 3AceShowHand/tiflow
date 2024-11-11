@@ -52,6 +52,8 @@ const (
 	// the changefeed is in BDR mode, because the DDL jobs should
 	// be filtered before they are sent to the sink
 	ddlPullerFilterLoop = false
+
+	ddlPullerSkipLightningPhysicalImported = false
 )
 
 // DDLJobPuller is used to pull ddl job from TiKV.
@@ -113,7 +115,7 @@ func NewDDLJobPuller(
 
 	grpcPool := sharedconn.NewConnAndClientPool(up.SecurityConfig, kv.GetGlobalGrpcMetrics())
 	client := kv.NewSharedClient(
-		changefeed, cfg, ddlPullerFilterLoop,
+		changefeed, cfg, ddlPullerFilterLoop, ddlPullerSkipLightningPhysicalImported,
 		pdCli, grpcPool, regionCache, pdClock,
 		txnutil.NewLockerResolver(kvStorage.(tikv.Storage), changefeed),
 	)

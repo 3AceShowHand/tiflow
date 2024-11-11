@@ -721,6 +721,7 @@ LOOP2:
 		c.redoDDLMgr,
 		c.redoMetaMgr,
 		util.GetOrZero(cfInfo.Config.BDRMode),
+		util.GetOrZero(cfInfo.Config.SkipLightningPhysicalImported),
 		cfInfo.Config.Sink.ShouldSendAllBootstrapAtStart(),
 		c.Throw(ctx),
 	)

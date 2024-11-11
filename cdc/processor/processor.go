@@ -693,6 +693,7 @@ func (p *processor) lazyInitImpl(_ context.Context) (err error) {
 		p.changefeedID, p.upstream, p.mg.r,
 		sortEngine, pullerSplitUpdateMode,
 		util.GetOrZero(cfConfig.BDRMode),
+		util.GetOrZero(cfConfig.SkipLightningPhysicalImported),
 		util.GetOrZero(cfConfig.EnableTableMonitor))
 	p.sourceManager.name = "SourceManager"
 	p.sourceManager.changefeedID = p.changefeedID

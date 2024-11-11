@@ -43,14 +43,15 @@ const (
 )
 
 var defaultReplicaConfig = &ReplicaConfig{
-	MemoryQuota:        DefaultChangefeedMemoryQuota,
-	CaseSensitive:      false,
-	CheckGCSafePoint:   true,
-	EnableSyncPoint:    util.AddressOf(false),
-	EnableTableMonitor: util.AddressOf(false),
-	SyncPointInterval:  util.AddressOf(10 * time.Minute),
-	SyncPointRetention: util.AddressOf(24 * time.Hour),
-	BDRMode:            util.AddressOf(false),
+	MemoryQuota:                   DefaultChangefeedMemoryQuota,
+	CaseSensitive:                 false,
+	CheckGCSafePoint:              true,
+	EnableSyncPoint:               util.AddressOf(false),
+	EnableTableMonitor:            util.AddressOf(false),
+	SyncPointInterval:             util.AddressOf(10 * time.Minute),
+	SyncPointRetention:            util.AddressOf(24 * time.Hour),
+	BDRMode:                       util.AddressOf(false),
+	SkipLightningPhysicalImported: util.AddressOf(false),
 	Filter: &FilterConfig{
 		Rules: []string{"*.*"},
 	},
@@ -160,6 +161,8 @@ type replicaConfig struct {
 	Integrity                    *integrity.Config   `toml:"integrity" json:"integrity"`
 	ChangefeedErrorStuckDuration *time.Duration      `toml:"changefeed-error-stuck-duration" json:"changefeed-error-stuck-duration,omitempty"`
 	SyncedStatus                 *SyncedStatusConfig `toml:"synced-status" json:"synced-status,omitempty"`
+
+	SkipLightningPhysicalImported *bool `toml:"skip-lightning-physical-imported" json:"skip-lightning-physical-imported,omitempty"`
 
 	// Deprecated: we don't use this field since v8.0.0.
 	SQLMode string `toml:"sql-mode" json:"sql-mode"`

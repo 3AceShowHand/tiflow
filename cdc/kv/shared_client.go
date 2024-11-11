@@ -139,8 +139,9 @@ type SharedClient struct {
 	config     *config.ServerConfig
 	metrics    sharedClientMetrics
 
-	clusterID  uint64
-	filterLoop bool
+	clusterID                     uint64
+	filterLoop                    bool
+	skipLightningPhysicalImported bool
 
 	pd           pd.Client
 	grpcPool     *sharedconn.ConnAndClientPool
@@ -231,6 +232,7 @@ func NewSharedClient(
 	changefeed model.ChangeFeedID,
 	cfg *config.ServerConfig,
 	filterLoop bool,
+	skipLightningPhysicalImported bool,
 	pd pd.Client,
 	grpcPool *sharedconn.ConnAndClientPool,
 	regionCache *tikv.RegionCache,
@@ -238,10 +240,11 @@ func NewSharedClient(
 	lockResolver txnutil.LockResolver,
 ) *SharedClient {
 	s := &SharedClient{
-		changefeed: changefeed,
-		config:     cfg,
-		clusterID:  0,
-		filterLoop: filterLoop,
+		changefeed:                    changefeed,
+		config:                        cfg,
+		clusterID:                     0,
+		filterLoop:                    filterLoop,
+		skipLightningPhysicalImported: skipLightningPhysicalImported,
 
 		pd:           pd,
 		grpcPool:     grpcPool,
@@ -495,15 +498,16 @@ func (s *SharedClient) getStore(
 
 func (s *SharedClient) createRegionRequest(region regionInfo) *cdcpb.ChangeDataRequest {
 	return &cdcpb.ChangeDataRequest{
-		Header:       &cdcpb.Header{ClusterId: s.clusterID, TicdcVersion: version.ReleaseSemver()},
-		RegionId:     region.verID.GetID(),
-		RequestId:    uint64(region.subscribedTable.subscriptionID),
-		RegionEpoch:  region.rpcCtx.Meta.RegionEpoch,
-		CheckpointTs: region.resolvedTs(),
-		StartKey:     region.span.StartKey,
-		EndKey:       region.span.EndKey,
-		ExtraOp:      kvrpcpb.ExtraOp_ReadOldValue,
-		FilterLoop:   s.filterLoop,
+		Header:                        &cdcpb.Header{ClusterId: s.clusterID, TicdcVersion: version.ReleaseSemver()},
+		RegionId:                      region.verID.GetID(),
+		RequestId:                     uint64(region.subscribedTable.subscriptionID),
+		RegionEpoch:                   region.rpcCtx.Meta.RegionEpoch,
+		CheckpointTs:                  region.resolvedTs(),
+		StartKey:                      region.span.StartKey,
+		EndKey:                        region.span.EndKey,
+		ExtraOp:                       kvrpcpb.ExtraOp_ReadOldValue,
+		FilterLoop:                    s.filterLoop,
+		SkipLightningPhysicalImported: s.skipLightningPhysicalImported,
 	}
 }
 

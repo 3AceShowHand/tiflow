@@ -129,8 +129,9 @@ type ddlManager struct {
 	tableInfoCache      []*model.TableInfo
 	physicalTablesCache []model.TableID
 
-	BDRMode       bool
-	ddlResolvedTs model.Ts
+	BDRMode                       bool
+	skipLightningPhysicalImported bool
+	ddlResolvedTs                 model.Ts
 
 	bootstrapState bootstrapState
 	reportError    func(err error)
@@ -163,6 +164,7 @@ func newDDLManager(
 	redoManager redo.DDLManager,
 	redoMetaManager redo.MetaManager,
 	bdrMode bool,
+	skipLightningPhysicalImported bool,
 	shouldSendAllBootstrapAtStart bool,
 	reportError func(err error),
 ) *ddlManager {
@@ -171,7 +173,8 @@ func newDDLManager(
 		zap.String("changefeed", changefeedID.ID),
 		zap.Uint64("startTs", startTs),
 		zap.Uint64("checkpointTs", checkpointTs),
-		zap.Bool("bdrMode", bdrMode))
+		zap.Bool("bdrMode", bdrMode),
+		zap.Bool("skipLightningPhysicalImported", skipLightningPhysicalImported))
 
 	bootstrap := bootstrapFinished
 	if shouldSendAllBootstrapAtStart {
@@ -179,20 +182,21 @@ func newDDLManager(
 	}
 
 	return &ddlManager{
-		changfeedID:     changefeedID,
-		ddlSink:         ddlSink,
-		filter:          filter,
-		ddlPuller:       ddlPuller,
-		schema:          schema,
-		redoDDLManager:  redoManager,
-		redoMetaManager: redoMetaManager,
-		startTs:         startTs,
-		checkpointTs:    checkpointTs,
-		ddlResolvedTs:   startTs,
-		BDRMode:         bdrMode,
-		pendingDDLs:     make(map[model.TableName][]*model.DDLEvent),
-		bootstrapState:  bootstrap,
-		reportError:     reportError,
+		changfeedID:                   changefeedID,
+		ddlSink:                       ddlSink,
+		filter:                        filter,
+		ddlPuller:                     ddlPuller,
+		schema:                        schema,
+		redoDDLManager:                redoManager,
+		redoMetaManager:               redoMetaManager,
+		startTs:                       startTs,
+		checkpointTs:                  checkpointTs,
+		ddlResolvedTs:                 startTs,
+		BDRMode:                       bdrMode,
+		skipLightningPhysicalImported: skipLightningPhysicalImported,
+		pendingDDLs:                   make(map[model.TableName][]*model.DDLEvent),
+		bootstrapState:                bootstrap,
+		reportError:                   reportError,
 	}
 }
 

@@ -184,14 +184,15 @@ func (d *JSONDuration) UnmarshalJSON(b []byte) error {
 
 // ReplicaConfig is a duplicate of  config.ReplicaConfig
 type ReplicaConfig struct {
-	MemoryQuota           uint64 `json:"memory_quota"`
-	CaseSensitive         bool   `json:"case_sensitive"`
-	ForceReplicate        bool   `json:"force_replicate"`
-	IgnoreIneligibleTable bool   `json:"ignore_ineligible_table"`
-	CheckGCSafePoint      bool   `json:"check_gc_safe_point"`
-	EnableSyncPoint       *bool  `json:"enable_sync_point,omitempty"`
-	EnableTableMonitor    *bool  `json:"enable_table_monitor,omitempty"`
-	BDRMode               *bool  `json:"bdr_mode,omitempty"`
+	MemoryQuota                   uint64 `json:"memory_quota"`
+	CaseSensitive                 bool   `json:"case_sensitive"`
+	ForceReplicate                bool   `json:"force_replicate"`
+	IgnoreIneligibleTable         bool   `json:"ignore_ineligible_table"`
+	CheckGCSafePoint              bool   `json:"check_gc_safe_point"`
+	EnableSyncPoint               *bool  `json:"enable_sync_point,omitempty"`
+	EnableTableMonitor            *bool  `json:"enable_table_monitor,omitempty"`
+	BDRMode                       *bool  `json:"bdr_mode,omitempty"`
+	SkipLightningPhysicalImported *bool  `json:"skip_lightning_physical_imported,omitempty"`
 
 	SyncPointInterval  *JSONDuration `json:"sync_point_interval,omitempty" swaggertype:"string"`
 	SyncPointRetention *JSONDuration `json:"sync_point_retention,omitempty" swaggertype:"string"`
@@ -232,6 +233,7 @@ func (c *ReplicaConfig) toInternalReplicaConfigWithOriginConfig(
 		res.SyncPointRetention = &c.SyncPointRetention.duration
 	}
 	res.BDRMode = c.BDRMode
+	res.SkipLightningPhysicalImported = c.SkipLightningPhysicalImported
 
 	if c.Filter != nil {
 		var efs []*config.EventFilterRule
@@ -538,14 +540,15 @@ func ToAPIReplicaConfig(c *config.ReplicaConfig) *ReplicaConfig {
 	cloned := c.Clone()
 
 	res := &ReplicaConfig{
-		MemoryQuota:           cloned.MemoryQuota,
-		CaseSensitive:         cloned.CaseSensitive,
-		ForceReplicate:        cloned.ForceReplicate,
-		IgnoreIneligibleTable: cloned.IgnoreIneligibleTable,
-		CheckGCSafePoint:      cloned.CheckGCSafePoint,
-		EnableSyncPoint:       cloned.EnableSyncPoint,
-		EnableTableMonitor:    cloned.EnableTableMonitor,
-		BDRMode:               cloned.BDRMode,
+		MemoryQuota:                   cloned.MemoryQuota,
+		CaseSensitive:                 cloned.CaseSensitive,
+		ForceReplicate:                cloned.ForceReplicate,
+		IgnoreIneligibleTable:         cloned.IgnoreIneligibleTable,
+		CheckGCSafePoint:              cloned.CheckGCSafePoint,
+		EnableSyncPoint:               cloned.EnableSyncPoint,
+		EnableTableMonitor:            cloned.EnableTableMonitor,
+		BDRMode:                       cloned.BDRMode,
+		SkipLightningPhysicalImported: cloned.SkipLightningPhysicalImported,
 	}
 
 	if cloned.SyncPointInterval != nil {
