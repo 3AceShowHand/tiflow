@@ -355,10 +355,22 @@ func (m *ddlManager) tick(
 
 		if m.shouldExecDDL(nextDDL) {
 			if m.executingDDL == nil {
+				var count int
+				for _, ddls := range m.pendingDDLs {
+					if len(ddls) == 0 {
+						continue
+					}
+					if ddls[0].CommitTs < m.checkpointTs {
+						count++
+					}
+				}
+
 				log.Info("execute a ddl event",
 					zap.String("query", nextDDL.Query),
 					zap.Uint64("commitTs", nextDDL.CommitTs),
-					zap.Uint64("checkpointTs", m.checkpointTs))
+					zap.Uint64("checkpointTs", m.checkpointTs),
+					zap.Int("canexecute", count))
+
 				m.executingDDL = nextDDL
 				skip, cleanMsg, err := m.shouldSkipDDL(m.executingDDL)
 				if err != nil {
