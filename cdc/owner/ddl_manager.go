@@ -360,7 +360,7 @@ func (m *ddlManager) tick(
 					if len(ddls) == 0 {
 						continue
 					}
-					if ddls[0].CommitTs < m.checkpointTs {
+					if ddls[0].CommitTs >= m.checkpointTs {
 						count++
 					}
 				}
