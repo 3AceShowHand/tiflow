@@ -88,9 +88,10 @@ func (p *tableProgress) handleResolvedSpans(ctx context.Context, e *model.Resolv
 		if e.ResolvedTs > p.maxIngressResolvedTs.Load() {
 			p.maxIngressResolvedTs.Store(e.ResolvedTs)
 		}
+		log.Info("resolved ts forward", zap.Uint64("resolvedTs", e.ResolvedTs))
 	}
 	resolvedTs := p.tsTracker.Frontier()
-
+	
 	if resolvedTs > 0 && p.initialized.CompareAndSwap(false, true) {
 		log.Info("puller is initialized",
 			zap.String("namespace", p.changefeed.Namespace),
@@ -393,6 +394,7 @@ func (p *MultiplexingPuller) runEventHandler(ctx context.Context, inputCh <-chan
 				return ctx.Err()
 			case progress.resolvedEventsCache <- e:
 				p.schedule(ctx, progress)
+				log.Info("resolved ts scheduled", zap.Uint64("resolvedTs", e.Resolved.ResolvedTs))
 			default:
 				p.CounterResolvedDropped.Add(float64(len(e.Resolved.Spans)))
 			}

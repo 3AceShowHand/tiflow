@@ -245,6 +245,7 @@ func (s *requestedStream) receive(
 			}
 		}
 		if cevent.ResolvedTs != nil {
+			log.Info("resolved ts received", zap.Uint64("resolvedTs", cevent.ResolvedTs.Ts))
 			c.metrics.batchResolvedSize.Observe(float64(len(cevent.ResolvedTs.Regions)))
 			if err := s.sendResolvedTs(ctx, c, cevent.ResolvedTs, subscriptionID); err != nil {
 				return err
