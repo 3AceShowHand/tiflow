@@ -158,18 +158,18 @@ func canalJSONMessage2RowChange(msg canalJSONMessageInterface) (*model.RowChange
 	result := new(model.RowChangedEvent)
 	result.CommitTs = msg.getCommitTs()
 	mysqlType := msg.getMySQLType()
-	var err error
+	pkNames := msg.pkNameSet()
 	if msg.eventType() == canal.EventType_DELETE {
 		// for `DELETE` event, `data` contain the old data, set it as the `PreColumns`
 		preCols, err := canalJSONColumnMap2RowChangeColumns(msg.getData(), mysqlType)
-		result.TableInfo = model.BuildTableInfoWithPKNames4Test(*msg.getSchema(), *msg.getTable(), preCols, msg.pkNameSet())
+		result.TableInfo = model.BuildTableInfoWithPKNames4Test(*msg.getSchema(), *msg.getTable(), preCols, pkNames)
 		result.PreColumns = model.Columns2ColumnDatas(preCols, result.TableInfo)
 		return result, err
 	}
 
 	// for `INSERT` and `UPDATE`, `data` contain fresh data, set it as the `Columns`
 	cols, err := canalJSONColumnMap2RowChangeColumns(msg.getData(), mysqlType)
-	result.TableInfo = model.BuildTableInfoWithPKNames4Test(*msg.getSchema(), *msg.getTable(), cols, msg.pkNameSet())
+	result.TableInfo = model.BuildTableInfoWithPKNames4Test(*msg.getSchema(), *msg.getTable(), cols, pkNames)
 	result.Columns = model.Columns2ColumnDatas(cols, result.TableInfo)
 	if err != nil {
 		return nil, err
