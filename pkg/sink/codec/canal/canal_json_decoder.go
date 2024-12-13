@@ -98,18 +98,8 @@ func (b *batchDecoder) HasNext() (model.MessageType, bool, error) {
 	if b.data == nil {
 		return model.MessageTypeUnknown, false, nil
 	}
-	var (
-		msg         canalJSONMessageInterface = &JSONMessage{}
-		encodedData []byte
-	)
 
-	if b.config.EnableTiDBExtension {
-		msg = &canalJSONMessageWithTiDBExtension{
-			JSONMessage: &JSONMessage{},
-			Extensions:  &tidbExtension{},
-		}
-	}
-
+	var encodedData []byte
 	if len(b.config.Terminator) > 0 {
 		idx := bytes.IndexAny(b.data, b.config.Terminator)
 		if idx >= 0 {
@@ -128,6 +118,13 @@ func (b *batchDecoder) HasNext() (model.MessageType, bool, error) {
 		return model.MessageTypeUnknown, false, nil
 	}
 
+	var msg canalJSONMessageInterface = &JSONMessage{}
+	if b.config.EnableTiDBExtension {
+		msg = &canalJSONMessageWithTiDBExtension{
+			JSONMessage: msg.(*JSONMessage),
+			Extensions:  &tidbExtension{},
+		}
+	}
 	if err := json.Unmarshal(encodedData, msg); err != nil {
 		log.Error("canal-json decoder unmarshal data failed",
 			zap.Error(err), zap.ByteString("data", encodedData))
