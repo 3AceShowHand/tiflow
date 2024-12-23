@@ -489,7 +489,8 @@ func (w *writer) appendRow2Group(row *model.RowChangedEvent, group *eventsGroup,
 			zap.Uint64("commitTs", row.CommitTs), zap.Any("offset", offset),
 			zap.Uint64("watermark", watermark), zap.Any("watermarkOffset", progress.watermarkOffset),
 			zap.String("schema", row.TableInfo.GetSchemaName()), zap.String("table", row.TableInfo.GetTableName()),
-			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition))
+			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition),
+			zap.Any("columns", row.Columns), zap.Any("preColumns", row.PreColumns))
 		return
 	}
 	if row.CommitTs >= group.highWatermark {
@@ -509,7 +510,8 @@ func (w *writer) appendRow2Group(row *model.RowChangedEvent, group *eventsGroup,
 			zap.Uint64("highWatermark", group.highWatermark),
 			zap.Any("partitionWatermark", watermark), zap.Any("watermarkOffset", progress.watermarkOffset),
 			zap.String("schema", row.TableInfo.GetSchemaName()), zap.String("table", row.TableInfo.GetTableName()),
-			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition))
+			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition),
+			zap.Any("columns", row.Columns), zap.Any("preColumns", row.PreColumns))
 		return
 	default:
 		// canal-json does not set table id for all messages.
