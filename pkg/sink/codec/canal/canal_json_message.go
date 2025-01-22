@@ -14,7 +14,6 @@
 package canal
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -203,14 +202,14 @@ func newTableInfo(msg canalJSONMessageInterface, partitionInfo *timodel.Partitio
 	return model.WrapTableInfo(100, schema, 1000, tidbTableInfo)
 }
 
-func (b *batchDecoder) setPhysicalTableID(event *model.RowChangedEvent, physicalTableID int64) error {
+func (b *batchDecoder) setPhysicalTableID(event *model.RowChangedEvent, physicalTableID int64) {
 	if physicalTableID != 0 {
 		event.PhysicalTableID = physicalTableID
-		return nil
+		return
 	}
 	if event.TableInfo.Partition == nil {
 		event.PhysicalTableID = event.TableInfo.ID
-		return nil
+		return
 	}
 	switch event.TableInfo.Partition.Type {
 	case pmodel.PartitionTypeRange:
@@ -230,18 +229,18 @@ func (b *batchDecoder) setPhysicalTableID(event *model.RowChangedEvent, physical
 			lessThan := partition.LessThan[0]
 			if lessThan == "MAXVALUE" {
 				event.PhysicalTableID = partition.ID
-				return nil
+				return
 			}
 			if len(columnValue) < len(lessThan) {
 				event.PhysicalTableID = partition.ID
-				return nil
+				return
 			}
 			if strings.Compare(columnValue, lessThan) == -1 {
 				event.PhysicalTableID = partition.ID
-				return nil
+				return
 			}
 		}
-		return fmt.Errorf("cannot found partition for column value %s", columnValue)
+		log.Panic("cannot found partition for column value", zap.Any("columnValue", columnValue))
 	// todo: support following rule if meet the corresponding workload
 	case pmodel.PartitionTypeHash:
 		targetColumnID := event.TableInfo.ForceGetColumnIDByName(strings.ReplaceAll(event.TableInfo.Partition.Expr, "`", ""))
@@ -259,13 +258,13 @@ func (b *batchDecoder) setPhysicalTableID(event *model.RowChangedEvent, physical
 		result := columnValue % int64(len(event.TableInfo.Partition.Definitions))
 		partitionID := event.TableInfo.GetPartitionInfo().Definitions[result].ID
 		event.PhysicalTableID = partitionID
-		return nil
+		return
 	case pmodel.PartitionTypeKey:
 	case pmodel.PartitionTypeList:
 	case pmodel.PartitionTypeNone:
 	default:
 	}
-	return fmt.Errorf("manually set partition id for partition type %s not supported yet", event.TableInfo.Partition.Type)
+	log.Panic("manually set partition id for partition type unsupported yet", zap.Any("partitionType", event.TableInfo.Partition.Type))
 }
 
 func (b *batchDecoder) canalJSONMessage2RowChange() (*model.RowChangedEvent, error) {
@@ -282,10 +281,7 @@ func (b *batchDecoder) canalJSONMessage2RowChange() (*model.RowChangedEvent, err
 		if err != nil {
 			return nil, err
 		}
-		err = b.setPhysicalTableID(result, msg.getPhysicalTableID())
-		if err != nil {
-			return nil, err
-		}
+		b.setPhysicalTableID(result, msg.getPhysicalTableID())
 		return result, nil
 	}
 
@@ -320,10 +316,7 @@ func (b *batchDecoder) canalJSONMessage2RowChange() (*model.RowChangedEvent, err
 			log.Panic("column count mismatch", zap.Any("preCols", preCols), zap.Any("cols", result.Columns))
 		}
 	}
-	err = b.setPhysicalTableID(result, msg.getPhysicalTableID())
-	if err != nil {
-		return nil, err
-	}
+	b.setPhysicalTableID(result, msg.getPhysicalTableID())
 	return result, nil
 }
 
