@@ -16,6 +16,8 @@ package open
 import (
 	"context"
 	"database/sql"
+	"github.com/pingcap/log"
+	"go.uber.org/zap"
 	"testing"
 
 	"github.com/pingcap/tidb/pkg/types"
@@ -213,6 +215,44 @@ func TestOpenProtocolBatchCodec(t *testing.T) {
 			err = decoder.AddKeyValue(key, value)
 			return decoder, err
 		})
+}
+
+func TestGenerateColumn(t *testing.T) {
+	helper := entry.NewSchemaTestHelper(t)
+	defer helper.Close()
+
+	_ = helper.DDL2Event(`create table test.t(a int primary key, b int as (a + 1) stored)`)
+	event := helper.DML2Event(`insert into test.t(a) values (1)`, "test", "t")
+	log.Info("dml event", zap.Any("column", event.Columns))
+
+	ctx := context.Background()
+	codecConfig := common.NewConfig(config.ProtocolOpen)
+	builder, err := NewBatchEncoderBuilder(ctx, codecConfig)
+	require.NoError(t, err)
+
+	encoder := builder.Build()
+
+	err = encoder.AppendRowChangedEvent(ctx, "", event, func() {})
+	require.NoError(t, err)
+
+	message := encoder.Build()[0]
+	log.Info("encoded message", zap.ByteString("key", message.Key), zap.ByteString("value", message.Value))
+
+	decoder, err := NewBatchDecoder(ctx, codecConfig, nil)
+	require.NoError(t, err)
+
+	err = decoder.AddKeyValue(message.Key, message.Value)
+	require.NoError(t, err)
+
+	messageType, hasNext, err := decoder.HasNext()
+	require.NoError(t, err)
+	require.True(t, hasNext)
+	require.Equal(t, messageType, model.MessageTypeRow)
+
+	decoded, err := decoder.NextRowChangedEvent()
+	require.NoError(t, err)
+	require.NotNil(t, decoded)
+	log.Info("decoded event", zap.Any("columns", decoded.Columns))
 }
 
 func TestEncodeDecodeE2E(t *testing.T) {
