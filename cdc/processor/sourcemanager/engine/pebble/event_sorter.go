@@ -469,7 +469,7 @@ func (s *EventSorter) handleEvents(
 					zap.String("namespace", s.changefeedID.Namespace),
 					zap.String("changefeed", s.changefeedID.ID))
 			}
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 			writeDuration.Observe(time.Since(start).Seconds())
 			batch = db.NewBatch()
 		}
