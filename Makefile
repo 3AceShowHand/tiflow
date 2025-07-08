@@ -92,7 +92,7 @@ TICDC_DOCKER_DEPLOYMENTS_DIR := deployments/ticdc/docker-compose/
 # the files included in recursive invocations of make
 MAKE_FILES = $(shell find . \( -name 'Makefile' -o -name '*.mk' \) -print)
 
-RELEASE_VERSION =
+RELEASE_VERSION = v7.5.0-master-dirty
 ifeq ($(RELEASE_VERSION),)
 	RELEASE_VERSION := v7.5.0-master
 	release_version_regex := ^v[0-9]\..*$$
