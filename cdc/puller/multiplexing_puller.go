@@ -269,7 +269,7 @@ func (p *MultiplexingPuller) run(ctx context.Context, includeClient bool) error 
 		g.Go(func() error { return p.handleInputCh(ctx, inputCh) })
 	}
 
-	log.Info("MultiplexingPuller starts",
+	log.Info("MultiplexingPuller start running",
 		zap.String("namespace", p.changefeed.Namespace),
 		zap.String("changefeed", p.changefeed.ID),
 		zap.Int("workerConcurrent", len(p.inputChs)),

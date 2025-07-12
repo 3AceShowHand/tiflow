@@ -79,7 +79,6 @@ type connArray struct {
 func NewConnAndClientPool(
 	credential *security.Credential,
 	grpcMetrics *grpc_prometheus.ClientMetrics,
-	maxStreamsPerConn ...int,
 ) *ConnAndClientPool {
 	return newConnAndClientPool(credential, grpcMetrics, 1000)
 }
@@ -89,12 +88,11 @@ func newConnAndClientPool(
 	grpcMetrics *grpc_prometheus.ClientMetrics,
 	maxStreamsPerConn int,
 ) *ConnAndClientPool {
-	stores := make(map[string]*connArray, 64)
 	return &ConnAndClientPool{
 		credential:        credential,
 		grpcMetrics:       grpcMetrics,
 		maxStreamsPerConn: maxStreamsPerConn,
-		stores:            stores,
+		stores:            make(map[string]*connArray, 64),
 	}
 }
 
