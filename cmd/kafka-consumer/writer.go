@@ -381,7 +381,7 @@ func (w *writer) WriteMessage(ctx context.Context, message *kafka.Message) bool 
 
 			tableID := row.GetTableID()
 			switch w.option.protocol {
-			case config.ProtocolSimple, config.ProtocolCanalJSON:
+			case config.ProtocolSimple:
 			default:
 				tableID = w.fakeTableIDGenerator.
 					generateFakeTableID(row.TableInfo.GetSchemaName(), row.TableInfo.GetTableName(), tableID)
