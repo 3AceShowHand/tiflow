@@ -94,8 +94,6 @@ func (p *partitionProgress) updateWatermark(newWatermark uint64, offset kafka.Of
 	if newWatermark >= watermark {
 		p.watermark = newWatermark
 		p.watermarkOffset = offset
-		log.Info("watermark received", zap.Int32("partition", p.partition), zap.Any("offset", offset),
-			zap.Uint64("watermark", newWatermark))
 		return
 	}
 	if offset > p.watermarkOffset {
@@ -353,10 +351,6 @@ func (w *writer) WriteMessage(ctx context.Context, message *kafka.Message) bool 
 				cachedEvents := dec.GetCachedEvents()
 				for _, row := range cachedEvents {
 					w.checkPartition(row, partition, message.TopicPartition.Offset)
-					tableID := row.GetTableID()
-					log.Info("simple protocol cached event resolved, append to the group",
-						zap.Int64("tableID", tableID), zap.Uint64("commitTs", row.CommitTs),
-						zap.Int32("partition", partition), zap.Any("offset", offset))
 					w.appendRow2Group(row, progress, offset)
 				}
 			}
@@ -473,12 +467,15 @@ func (w *writer) appendRow2Group(row *model.RowChangedEvent, progress *partition
 		progress.eventGroups[tableID] = group
 	}
 	if row.CommitTs < watermark {
-		log.Warn("RowChanged Event fallback row, since les than the partition watermark, ignore it",
+		log.Warn("RowChanged Event fallback row, since less than the partition watermark, ignore it",
 			zap.Int64("tableID", tableID), zap.Int32("partition", partition),
 			zap.Uint64("commitTs", row.CommitTs), zap.Any("offset", offset),
-			zap.Uint64("watermark", watermark), zap.Any("watermarkOffset", progress.watermarkOffset),
+			zap.Int64("es", commitTsToCanalEs(row.CommitTs)),
+			zap.Uint64("watermark", watermark),
+			zap.Int64("watermarkEs", commitTsToCanalEs(watermark)),
+			zap.Any("watermarkOffset", progress.watermarkOffset),
 			zap.String("schema", row.TableInfo.GetSchemaName()), zap.String("table", row.TableInfo.GetTableName()),
-			zap.Any("columns", row.Columns), zap.Any("preColumns", row.PreColumns),
+			zap.Strings("handleKey", row.GetHandleKeyColumnValues()),
 			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition))
 		return
 	}
@@ -496,10 +493,14 @@ func (w *writer) appendRow2Group(row *model.RowChangedEvent, progress *partition
 		log.Warn("RowChangedEvent fallback row, since less than the group high watermark, ignore it",
 			zap.Int64("tableID", tableID), zap.Int32("partition", partition),
 			zap.Uint64("commitTs", row.CommitTs), zap.Any("offset", offset),
+			zap.Int64("es", commitTsToCanalEs(row.CommitTs)),
 			zap.Uint64("highWatermark", group.highWatermark),
-			zap.Any("partitionWatermark", watermark), zap.Any("watermarkOffset", progress.watermarkOffset),
+			zap.Int64("highWatermarkEs", commitTsToCanalEs(group.highWatermark)),
+			zap.Any("partitionWatermark", watermark),
+			zap.Int64("partitionWatermarkEs", commitTsToCanalEs(watermark)),
+			zap.Any("watermarkOffset", progress.watermarkOffset),
 			zap.String("schema", row.TableInfo.GetSchemaName()), zap.String("table", row.TableInfo.GetTableName()),
-			zap.Any("columns", row.Columns), zap.Any("preColumns", row.PreColumns),
+			zap.Strings("handleKey", row.GetHandleKeyColumnValues()),
 			zap.String("protocol", w.option.protocol.String()), zap.Bool("IsPartition", row.TableInfo.TableName.IsPartition))
 		return
 	default:
@@ -507,12 +508,20 @@ func (w *writer) appendRow2Group(row *model.RowChangedEvent, progress *partition
 	log.Warn("RowChangedEvent fallback row, since less than the group high watermark, do not ignore it",
 		zap.Int64("tableID", tableID), zap.Int32("partition", partition),
 		zap.Uint64("commitTs", row.CommitTs), zap.Any("offset", offset),
+		zap.Int64("es", commitTsToCanalEs(row.CommitTs)),
 		zap.Uint64("highWatermark", group.highWatermark),
-		zap.Any("partitionWatermark", watermark), zap.Any("watermarkOffset", progress.watermarkOffset),
+		zap.Int64("highWatermarkEs", commitTsToCanalEs(group.highWatermark)),
+		zap.Any("partitionWatermark", watermark),
+		zap.Int64("partitionWatermarkEs", commitTsToCanalEs(watermark)),
+		zap.Any("watermarkOffset", progress.watermarkOffset),
 		zap.String("schema", row.TableInfo.GetSchemaName()), zap.String("table", row.TableInfo.GetTableName()),
-		zap.Any("columns", row.Columns), zap.Any("preColumns", row.PreColumns),
+		zap.Strings("handleKey", row.GetHandleKeyColumnValues()),
 		zap.String("protocol", w.option.protocol.String()))
 	group.Append(row, offset)
+}
+
+func commitTsToCanalEs(commitTs uint64) int64 {
+	return int64(commitTs >> 18)
 }
 
 type fakeTableIDGenerator struct {
